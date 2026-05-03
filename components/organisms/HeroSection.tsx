@@ -81,8 +81,7 @@ export function HeroSection({ onBootComplete }: HeroSectionProps) {
                 "block mt-2 transition-colors duration-700",
                 isReady ? "text-accent drop-shadow-[0_0_5px_rgba(0,255,136,0.5)]" : "text-accent-secondary"
               )}>
-                <strong>GovTech</strong> / <strong>Cloud Services</strong> /{" "}
-                <strong>Microservices</strong>
+                <strong>Software Engineer</strong>
               </span>
             </h2>
 
