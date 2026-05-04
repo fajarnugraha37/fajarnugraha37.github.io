@@ -10,6 +10,7 @@ import { Footer } from "@/components/organisms/Footer";
 import { ScrollProgress } from "@/components/atoms/ScrollProgress";
 import { ScrollToTop } from "@/components/atoms/ScrollToTop";
 import { ToastProvider } from "@/components/atoms/Toast";
+import { Analytics } from "@/components/atoms/Analytics";
 import { ReactQueryProvider } from "@/components/providers/ReactQueryProvider";
 
 const orbitron = Orbitron({ subsets: ["latin"], variable: "--font-orbitron" });
@@ -94,6 +95,7 @@ export default function RootLayout({
       data-scroll-behavior="smooth"
     >
       <body suppressHydrationWarning className="min-h-screen flex flex-col bg-background text-foreground selection:bg-accent selection:text-black">
+        <Analytics />
         <script src="/coi-serviceworker.js" async></script>
         <ReactQueryProvider>
           <ToastProvider />

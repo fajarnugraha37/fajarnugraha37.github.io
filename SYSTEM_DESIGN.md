@@ -118,6 +118,23 @@ Extracted logic layer to ensure UI components remain clean:
 ### 6.3. Motion & Transitions
 Transitions between laboratory view modes and file interactions use `motion/react` with `AnimatePresence` to ensure a smooth, "living" interface feel.
 
+### 6.4. Z-Index Management (Centralized Stacking)
+The application employs a centralized, semantic z-index scale defined in `app.css` via Tailwind v4 `@theme`. This prevents "z-index wars" and ensures predictable layering across complex interactive nodes.
+
+| Level | Variable | Purpose |
+| :--- | :--- | :--- |
+| **Below** | `--z-deep` (-50) | Background glows and deep decorations |
+| **Base** | `--z-base` (0) | Standard page content |
+| **Content** | `--z-content` (10) | Floating UI within components (e.g., Copy buttons) |
+| **Overlay** | `--z-overlay` (20) | Local component overlays and sidebars |
+| **Sticky** | `--z-sticky` (30) | Sticky headers within content areas |
+| **Backdrop** | `--z-backdrop` (40) | Global menu/search backdrops |
+| **UI Core** | `--z-header` (50) | Main site navigation |
+| **Transient** | `--z-dropdown` (60) | Action menus and popovers |
+| **Glitch** | `--z-scanlines` (90) | Global CRT effect (CRT aesthetic layer) |
+| **Critical** | `--z-modal` (100) | Blocking dialogs and immersive lab modes |
+| **System** | `--z-toast` (200) | Top-level system notifications |
+
 ---
 
 ## 7. Deployment & CI/CD

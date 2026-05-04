@@ -150,6 +150,11 @@ The system auto-deploys via GitHub Actions to Pages upon every push to `main`.
 GitHub Pages does not natively support setting custom `Cross-Origin-Opener-Policy` (COOP) and `Cross-Origin-Embedder-Policy` (COEP) HTTP headers. These headers are strictly required by browsers to enable `SharedArrayBuffer`, which FFmpeg-WASM needs for multithreading.
 To bypass this limitation, this project uses the [coi-serviceworker](https://github.com/gzuidhof/coi-serviceworker) library. A local service worker (`public/coi-serviceworker.js`) intercepts the initial page load and injects the necessary security headers into the browser's response, allowing full multithreading capabilities on a static host.
 
+**GTM_TRACKING_INJECTION:**
+To activate analytics tracking:
+1. **Local Setup:** Add `NEXT_PUBLIC_GTM_ID=GTM-XXXXXXX` to your `.env.local`.
+2. **Production Setup:** In your GitHub Repository, navigate to **Settings > Secrets and variables > Actions** and add a new repository secret named `NEXT_PUBLIC_GTM_ID` with your container ID as the value. The CI/CD pipeline will automatically inject it during the build phase.
+
 **The Docker Routine:**
 
 ```bash
