@@ -27,6 +27,7 @@ export function SeriesPartContent({
   children,
 }: SeriesPartContentProps) {
   const showToc = headings.length > 1;
+  const displayTitle = part.partTitle || part.title;
 
   return (
     <PageTransition>
@@ -83,13 +84,24 @@ export function SeriesPartContent({
               <span>{part.seriesTitle}</span>
             </div>
 
-            <div className="mb-3 text-[10px] font-mono uppercase tracking-[0.15em] text-accent-secondary">
-              PART {part.order.toString().padStart(2, "0")} - {part.partTitle || part.title}
+            <div className="mb-3 flex flex-wrap items-center gap-2 text-[10px] font-mono uppercase tracking-[0.15em]">
+              <span className="text-accent-secondary bg-accent-secondary/5 border border-accent-secondary/20 px-2 py-1">
+                PART {part.order.toString().padStart(2, "0")}
+              </span>
+              <span className="text-muted-foreground">
+                {parts.length.toString().padStart(2, "0")} PART TRACK
+              </span>
             </div>
 
-            <h1 id={headings[0]?.id} className="text-2xl md:text-4xl font-black text-foreground leading-tight tracking-tighter mb-4">
-              {part.title}
+            <h1 id={headings[0]?.id} className="text-2xl md:text-4xl font-black text-foreground leading-tight tracking-tighter mb-3">
+              {displayTitle}
             </h1>
+
+            {displayTitle !== part.title && (
+              <p className="text-sm md:text-base font-mono text-muted-foreground mb-4 leading-relaxed">
+                {part.title}
+              </p>
+            )}
 
             <div className="flex flex-wrap items-center gap-3 mb-6">
               <time className="text-accent-secondary font-mono text-[10px] bg-accent-secondary/5 border border-accent-secondary/20 px-2 py-0.5">
@@ -128,14 +140,14 @@ export function SeriesPartContent({
           </div>
 
           {showToc && (
-          <aside className="hidden xl:block relative">
-            <div className="sticky top-24 font-mono text-xs">
-              <h3 className="text-accent uppercase tracking-widest mb-6 border-b border-border pb-2">
-                [ STRUCTURE ]
-              </h3>
-              <TocNav headings={headings} />
-            </div>
-          </aside>
+            <aside className="hidden xl:block relative">
+              <div className="sticky top-24 font-mono text-xs">
+                <h3 className="text-accent uppercase tracking-widest mb-6 border-b border-border pb-2">
+                  [ STRUCTURE ]
+                </h3>
+                <TocNav headings={headings} />
+              </div>
+            </aside>
           )}
         </article>
       </div>
