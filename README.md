@@ -40,6 +40,40 @@ Running on the latest stable firmware:
 
 ---
 
+## AUDIO_WORKFLOW
+
+This project can generate offline narration audio for `blogs` and `series` content using Piper.
+
+### Required environment variables
+
+- `PIPER_BASE_URL` — Piper HTTP server URL, for example `http://127.0.0.1:5000`
+- `PIPER_VOICE` — Piper voice/model name, for example `en_US-lessac-medium`
+
+Optional tuning:
+
+- `PIPER_SPEAKER`
+- `PIPER_LENGTH_SCALE`
+- `PIPER_NOISE_SCALE`
+- `PIPER_NOISE_W_SCALE`
+
+### Generate audio
+
+```bash
+bun run generate-audio
+```
+
+Generated files:
+
+- `public/assets/audio/blogs/...`
+- `public/assets/audio/series/...`
+- `public/audio-manifest.json`
+
+Build cache:
+
+- `.cache/audio-build-state.json`
+
+---
+
 ## LABORATORY_NODES
 
 The site isn't just text; it's a series of experimental laboratories:

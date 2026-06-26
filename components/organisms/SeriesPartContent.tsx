@@ -4,7 +4,8 @@ import Link from "next/link";
 import { ChevronLeft, LibraryBig } from "lucide-react";
 import { PageTransition } from "@/components/atoms/PageTransition";
 import { TocNav } from "@/components/molecules/TocNav";
-import { SeriesPart, TocHeading } from "@/types";
+import { ContentAudioPlayer } from "@/components/molecules/ContentAudioPlayer";
+import { AudioManifestEntry, SeriesPart, TocHeading } from "@/types";
 import { SeriesSidebar } from "@/components/molecules/SeriesSidebar";
 import { SeriesMobileNavigator } from "@/components/molecules/SeriesMobileNavigator";
 import { SeriesPrevNextNav } from "@/components/molecules/SeriesPrevNextNav";
@@ -15,6 +16,7 @@ interface SeriesPartContentProps {
   parts: SeriesPart[];
   previousPart: SeriesPart | null;
   nextPart: SeriesPart | null;
+  audioEntry?: AudioManifestEntry | null;
   children: React.ReactNode;
 }
 
@@ -24,6 +26,7 @@ export function SeriesPartContent({
   parts,
   previousPart,
   nextPart,
+  audioEntry,
   children,
 }: SeriesPartContentProps) {
   const showToc = headings.length > 1;
@@ -125,6 +128,13 @@ export function SeriesPartContent({
                 </span>
               ))}
             </div>
+
+            {audioEntry && (
+              <ContentAudioPlayer
+                audio={audioEntry}
+                label="Listen to this lesson"
+              />
+            )}
 
             <div className="markdown-body p-4 md:p-8 bg-card/5 border border-border/20 text-foreground/90 font-mono relative overflow-x-auto">
               <div className="relative z-10 prose prose-invert max-w-none">

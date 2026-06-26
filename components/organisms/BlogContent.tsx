@@ -5,13 +5,15 @@ import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { TocNav } from "@/components/molecules/TocNav";
 import { BlogActions } from "@/components/molecules/BlogActions";
-import { Blog, TocHeading } from "@/types";
+import { ContentAudioPlayer } from "@/components/molecules/ContentAudioPlayer";
+import { AudioManifestEntry, Blog, TocHeading } from "@/types";
 import { PageTransition } from "@/components/atoms/PageTransition";
 
 interface BlogContentProps {
   postData: Blog;
   headings: TocHeading[];
   relatedPosts: Blog[];
+  audioEntry?: AudioManifestEntry | null;
   children: React.ReactNode; // The rendered MDX content
 }
 
@@ -20,7 +22,7 @@ interface BlogContentProps {
  * Orchestrates the full blog post layout with TOC and related posts.
  * Accepts rendered MDX content as children to support RSC.
  */
-export function BlogContent({ postData, headings, relatedPosts, children }: BlogContentProps) {
+export function BlogContent({ postData, headings, relatedPosts, audioEntry, children }: BlogContentProps) {
   return (
     <PageTransition>
       <div className="relative min-h-screen">
@@ -73,6 +75,13 @@ export function BlogContent({ postData, headings, relatedPosts, children }: Blog
               </div>
               <BlogActions title={postData.title} slug={postData.slug} content={postData.content} />
             </div>
+
+            {audioEntry && (
+              <ContentAudioPlayer
+                audio={audioEntry}
+                label="Listen to this article"
+              />
+            )}
 
             <div className="markdown-body p-6 md:p-10 bg-card/5 border border-border/20 text-foreground/90 font-mono relative overflow-x-auto mb-16">
               <div className="relative z-10 prose prose-invert max-w-none">

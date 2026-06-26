@@ -10,6 +10,7 @@ import remarkGfm from "remark-gfm";
 import rehypeKatex from "rehype-katex";
 import rehypeSlug from "rehype-slug";
 import rehypeRaw from "rehype-raw";
+import { getBlogAudioEntry } from "@/lib/audio/read";
 
 export async function generateStaticParams() {
   const slugs = getAllBlogSlugs();
@@ -61,12 +62,14 @@ export default async function BlogPost({
   const relatedPosts = await Promise.all(
     relatedSlugs.map((r) => getBlogData(r.slug)),
   );
+  const audioEntry = getBlogAudioEntry(postData.slug);
 
   return (
     <BlogContent 
       postData={postData} 
       headings={headings} 
-      relatedPosts={relatedPosts} 
+      relatedPosts={relatedPosts}
+      audioEntry={audioEntry}
     >
       <MDXRemote
         source={postData.content}

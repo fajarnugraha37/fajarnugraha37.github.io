@@ -11,6 +11,7 @@ import { mdxComponents } from "@/components/molecules/MDXComponents";
 import { SeriesPartContent } from "@/components/organisms/SeriesPartContent";
 import { getAllSeriesPartParams, getSeriesBySlug, getSeriesPart } from "@/lib/series";
 import { getHeadings } from "@/lib/mdx";
+import { getSeriesPartAudioEntry } from "@/lib/audio/read";
 
 export function generateStaticParams() {
   return getAllSeriesPartParams();
@@ -63,6 +64,7 @@ export default async function SeriesPartPage({
     currentIndex >= 0 && currentIndex < series.parts.length - 1
       ? series.parts[currentIndex + 1]
       : null;
+  const audioEntry = getSeriesPartAudioEntry(seriesSlug, partSlug);
 
   return (
     <SeriesPartContent
@@ -71,6 +73,7 @@ export default async function SeriesPartPage({
       parts={series.parts}
       previousPart={previousPart}
       nextPart={nextPart}
+      audioEntry={audioEntry}
     >
       <MDXRemote
         source={part.content}

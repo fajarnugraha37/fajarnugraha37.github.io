@@ -59,6 +59,30 @@ export interface SeriesNavLink {
   order: number;
 }
 
+export type AudioContentKind = "blog" | "series-part";
+
+export interface AudioManifestEntry {
+  id: string;
+  kind: AudioContentKind;
+  title: string;
+  description: string;
+  audioSrc: string;
+  durationSeconds: number;
+  voice: string;
+  sourceHash: string;
+  generatedAt: string;
+  textLength: number;
+  wordCount: number;
+  slug?: string;
+  seriesSlug?: string;
+  partSlug?: string;
+}
+
+export interface AudioManifest {
+  generatedAt: string;
+  entries: AudioManifestEntry[];
+}
+
 export interface TocHeading {
   level: number;
   text: string;
