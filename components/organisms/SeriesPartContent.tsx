@@ -32,7 +32,7 @@ export function SeriesPartContent({
   return (
     <PageTransition>
       <div className="relative min-h-screen">
-        <article className={`max-w-[1500px] mx-auto relative z-10 px-4 pt-8 md:pt-12 grid grid-cols-1 ${showToc ? "lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)_220px]" : "lg:grid-cols-[260px_minmax(0,1fr)]"} gap-8 xl:gap-10`}>
+        <article className={`max-w-[1500px] mx-auto relative z-10 px-4 pt-6 md:pt-12 grid grid-cols-1 ${showToc ? "lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)_220px]" : "lg:grid-cols-[260px_minmax(0,1fr)]"} gap-6 lg:gap-8 xl:gap-10`}>
           <aside className="hidden lg:block relative">
             <SeriesSidebar
               seriesSlug={part.seriesSlug}
@@ -43,7 +43,7 @@ export function SeriesPartContent({
           </aside>
 
           <div className="min-w-0">
-            <div className="sticky top-16 z-30 bg-background/90 backdrop-blur-xl border-b border-accent/20 shadow-[0_15px_35px_rgba(0,0,0,0.9)] -mx-4 md:-mx-8 mb-8 px-4 md:px-8 py-4">
+            <div className="sticky top-16 z-30 bg-background/90 backdrop-blur-xl border-b border-accent/20 shadow-[0_15px_35px_rgba(0,0,0,0.9)] -mx-4 md:-mx-8 mb-6 md:mb-8 px-4 md:px-8 py-3 md:py-4">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 text-[9px] font-mono uppercase tracking-[0.15em] text-muted-foreground mb-2">
@@ -79,7 +79,7 @@ export function SeriesPartContent({
               parts={parts}
             />
 
-            <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.15em] text-accent mb-3">
+            <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.15em] text-accent mb-2">
               <LibraryBig className="w-3 h-3" />
               <span>{part.seriesTitle}</span>
             </div>
@@ -93,7 +93,7 @@ export function SeriesPartContent({
               </span>
             </div>
 
-            <h1 id={headings[0]?.id} className="text-2xl md:text-4xl font-black text-foreground leading-tight tracking-tighter mb-3">
+            <h1 id={headings[0]?.id} className="text-2xl md:text-4xl font-black text-foreground leading-tight tracking-tighter mb-2">
               {displayTitle}
             </h1>
 
@@ -103,7 +103,7 @@ export function SeriesPartContent({
               </p>
             )}
 
-            <div className="flex flex-wrap items-center gap-3 mb-6">
+            <div className="flex flex-wrap items-center gap-3 mb-5 md:mb-6">
               <time className="text-accent-secondary font-mono text-[10px] bg-accent-secondary/5 border border-accent-secondary/20 px-2 py-0.5">
                 [{part.date}]
               </time>
@@ -115,7 +115,7 @@ export function SeriesPartContent({
               </span>
             </div>
 
-            <div className="flex flex-wrap gap-2 mb-8">
+            <div className="flex flex-wrap gap-2 mb-6 md:mb-8">
               {part.tags.map((tag) => (
                 <span
                   key={tag}
@@ -126,7 +126,7 @@ export function SeriesPartContent({
               ))}
             </div>
 
-            <div className="markdown-body p-5 md:p-8 bg-card/5 border border-border/20 text-foreground/90 font-mono relative overflow-x-auto">
+            <div className="markdown-body p-4 md:p-8 bg-card/5 border border-border/20 text-foreground/90 font-mono relative overflow-x-auto">
               <div className="relative z-10 prose prose-invert max-w-none">
                 {children}
               </div>
