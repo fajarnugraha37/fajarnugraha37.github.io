@@ -26,6 +26,39 @@ export interface Blog extends BlogMetadata {
   stats: ContentStats;
 }
 
+export interface SeriesPartMetadata extends BlogMetadata {
+  seriesSlug: string;
+  seriesTitle: string;
+  order: number;
+  partTitle?: string;
+}
+
+export interface SeriesPart extends SeriesPartMetadata {
+  content: string;
+  stats: ContentStats;
+}
+
+export interface SeriesSummary {
+  seriesSlug: string;
+  seriesTitle: string;
+  description: string;
+  tags: string[];
+  totalParts: number;
+  totalReadingTime: number;
+  firstPartSlug: string;
+}
+
+export interface SeriesDetail {
+  summary: SeriesSummary;
+  parts: SeriesPart[];
+}
+
+export interface SeriesNavLink {
+  slug: string;
+  title: string;
+  order: number;
+}
+
 export interface TocHeading {
   level: number;
   text: string;
