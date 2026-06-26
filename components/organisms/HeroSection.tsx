@@ -141,6 +141,14 @@ export function HeroSection({ onBootComplete }: HeroSectionProps) {
             >
               <Link href="/blogs">READ_BLOGS</Link>
             </Button>
+            <Button
+              variant="outline"
+              size="lg"
+              asChild
+              className="w-full sm:w-auto text-center justify-center hover:border-accent-tertiary hover:text-accent-tertiary hover:shadow-[0_0_15px_rgba(0,212,255,0.35)]"
+            >
+              <Link href="/series">START_SERIES</Link>
+            </Button>
           </div>
         </ScrollReveal>
       </div>

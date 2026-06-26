@@ -1,4 +1,5 @@
 import { getSortedBlogsData } from "@/lib/mdx";
+import { getAllSeries } from "@/lib/series";
 import { HomeContent } from "@/components/organisms/HomeContent";
 
 /**
@@ -7,6 +8,7 @@ import { HomeContent } from "@/components/organisms/HomeContent";
  */
 export default async function Home() {
   const recentBlogs = getSortedBlogsData().slice(0, 3);
+  const featuredSeries = getAllSeries().slice(0, 2);
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -38,5 +40,5 @@ export default async function Home() {
     ],
   };
 
-  return <HomeContent recentBlogs={recentBlogs} jsonLd={jsonLd} />;
+  return <HomeContent recentBlogs={recentBlogs} featuredSeries={featuredSeries} jsonLd={jsonLd} />;
 }

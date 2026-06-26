@@ -5,13 +5,15 @@ import { HeroSection } from "@/components/organisms/HeroSection";
 import { StaticTerminalSection } from "@/components/organisms/StaticTerminalSection";
 import { HardwareNodesSection } from "@/components/organisms/HardwareNodesSection";
 import { ParadigmsSection } from "@/components/organisms/ParadigmsSection";
+import { FeaturedSeriesSection } from "@/components/organisms/FeaturedSeriesSection";
 import { RecentTransmissionsSection } from "@/components/organisms/RecentTransmissionsSection";
 import React, { useState } from "react";
 import { cn } from "@/lib/utils";
-import { BlogMetadata } from "@/types";
+import { BlogMetadata, SeriesSummary } from "@/types";
 
 interface HomeContentProps {
   recentBlogs: BlogMetadata[];
+  featuredSeries: SeriesSummary[];
   jsonLd: any;
 }
 
@@ -20,7 +22,7 @@ interface HomeContentProps {
  * A Client Component that orchestrates the global boot-up theme transition.
  * Data is injected from the server.
  */
-export function HomeContent({ recentBlogs, jsonLd }: HomeContentProps) {
+export function HomeContent({ recentBlogs, featuredSeries, jsonLd }: HomeContentProps) {
   const [isBooted, setIsBooted] = useState(false);
 
   return (
@@ -54,6 +56,7 @@ export function HomeContent({ recentBlogs, jsonLd }: HomeContentProps) {
 
         <HardwareNodesSection />
         <ParadigmsSection />
+        <FeaturedSeriesSection seriesList={featuredSeries} />
         <RecentTransmissionsSection recentBlogs={recentBlogs} />
       </div>
     </PageTransition>

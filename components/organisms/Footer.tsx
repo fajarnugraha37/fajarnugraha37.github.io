@@ -94,6 +94,17 @@ export function Footer() {
               </li>
               <li>
                 <Link
+                  href="/series"
+                  className="text-muted-foreground hover:text-accent-tertiary transition-colors flex items-center gap-2 group w-fit"
+                >
+                  <span className="opacity-0 group-hover:opacity-100 text-accent-tertiary transition-opacity">
+                    &gt;
+                  </span>{" "}
+                  Series
+                </Link>
+              </li>
+              <li>
+                <Link
                   href="/about"
                   className="text-muted-foreground hover:text-accent-secondary transition-colors flex items-center gap-2 group w-fit"
                 >

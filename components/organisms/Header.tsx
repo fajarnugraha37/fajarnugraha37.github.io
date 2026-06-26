@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 
 const NAV_LINKS = [
   { href: "/blogs", label: "/Blogs", activeClass: "text-accent" },
+  { href: "/series", label: "/Series", activeClass: "text-accent-tertiary" },
   { href: "/about", label: "/About", activeClass: "text-accent-secondary" },
   { href: "/labs", label: "/Labs", activeClass: "text-accent-tertiary" },
   { href: "/feed.xml", label: "/RSS Feed", activeClass: "text-accent" },

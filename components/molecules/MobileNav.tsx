@@ -16,6 +16,11 @@ interface NavLink {
 const NAV_LINKS: NavLink[] = [
   { href: "/blogs", label: "/Blogs", accentClass: "hover:text-accent" },
   {
+    href: "/series",
+    label: "/Series",
+    accentClass: "hover:text-accent-tertiary",
+  },
+  {
     href: "/about",
     label: "/About",
     accentClass: "hover:text-accent-secondary",
