@@ -16,6 +16,8 @@ export function SeriesSidebar({
   parts,
   seriesTitle,
 }: SeriesSidebarProps) {
+  const activeIndex = parts.findIndex((part) => part.slug === activePartSlug);
+
   return (
     <div className="sticky top-24 font-mono text-xs">
       <h3 className="text-accent uppercase tracking-widest mb-2 border-b border-border pb-2">
@@ -24,6 +26,20 @@ export function SeriesSidebar({
       <p className="text-[10px] text-muted-foreground uppercase tracking-[0.15em] mb-4">
         {seriesTitle}
       </p>
+      <div className="mb-4 border border-border/50 bg-card/20 px-3 py-2">
+        <div className="flex items-center justify-between gap-3 text-[9px] uppercase tracking-[0.15em] text-muted-foreground">
+          <span>Progress</span>
+          <span className="text-accent">
+            {(activeIndex + 1).toString().padStart(2, "0")} / {parts.length.toString().padStart(2, "0")}
+          </span>
+        </div>
+        <div className="mt-2 h-1 bg-muted overflow-hidden">
+          <div
+            className="h-full bg-accent"
+            style={{ width: `${((activeIndex + 1) / parts.length) * 100}%` }}
+          />
+        </div>
+      </div>
       <nav className="space-y-2">
         {parts.map((part) => {
           const active = part.slug === activePartSlug;

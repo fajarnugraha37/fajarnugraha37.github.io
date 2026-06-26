@@ -16,7 +16,7 @@ export function SeriesPrevNextNav({
   nextPart,
 }: SeriesPrevNextNavProps) {
   return (
-    <div className="grid gap-4 md:grid-cols-2 mt-10">
+    <div className="grid gap-4 md:grid-cols-2 mt-10 pt-8 border-t border-border/40">
       {previousPart ? (
         <Link
           href={`/series/${seriesSlug}/${previousPart.slug}`}
@@ -25,6 +25,9 @@ export function SeriesPrevNextNav({
           <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.15em] text-muted-foreground mb-2">
             <ChevronLeft className="w-3 h-3 group-hover:-translate-x-1 transition-transform" />
             Previous Part
+          </div>
+          <div className="text-[9px] font-mono uppercase tracking-[0.15em] text-accent-secondary mb-1">
+            PART {previousPart.order.toString().padStart(2, "0")}
           </div>
           <div className="text-foreground group-hover:text-accent transition-colors">
             {previousPart.partTitle || previousPart.title}
@@ -44,6 +47,9 @@ export function SeriesPrevNextNav({
           <div className="flex items-center justify-end gap-2 text-[10px] font-mono uppercase tracking-[0.15em] text-muted-foreground mb-2">
             Next Part
             <ChevronRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+          </div>
+          <div className="text-[9px] font-mono uppercase tracking-[0.15em] text-accent-secondary mb-1">
+            PART {nextPart.order.toString().padStart(2, "0")}
           </div>
           <div className="text-foreground group-hover:text-accent transition-colors">
             {nextPart.partTitle || nextPart.title}
