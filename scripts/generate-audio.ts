@@ -17,6 +17,8 @@ import { AudioManifestEntry } from "@/types";
 const AUDIO_OUTPUT_DIR = path.join(process.cwd(), "public", "assets", "audio");
 const MANIFEST_PATH = path.join(process.cwd(), "public", "audio-manifest.json");
 const STATE_PATH = path.join(process.cwd(), ".cache", "audio-build-state.json");
+const DEFAULT_MAX_CHARS_PER_CHUNK = 280;
+const DEFAULT_SOFT_MIN_CHARS_PER_CHUNK = 160;
 
 function getRequiredEnv(name: string) {
   const value = process.env[name];
@@ -48,6 +50,23 @@ function getAudioConfig(): AudioBuildConfig {
     lengthScale: process.env.PIPER_LENGTH_SCALE ? Number(process.env.PIPER_LENGTH_SCALE) : undefined,
     noiseScale: process.env.PIPER_NOISE_SCALE ? Number(process.env.PIPER_NOISE_SCALE) : undefined,
     noiseWScale: process.env.PIPER_NOISE_W_SCALE ? Number(process.env.PIPER_NOISE_W_SCALE) : undefined,
+  };
+}
+
+function getChunkingConfig() {
+  const maxChars = process.env.PIPER_MAX_CHARS_PER_CHUNK
+    ? Number(process.env.PIPER_MAX_CHARS_PER_CHUNK)
+    : DEFAULT_MAX_CHARS_PER_CHUNK;
+
+  return {
+    maxChars:
+      Number.isFinite(maxChars) && maxChars >= 120
+        ? Math.floor(maxChars)
+        : DEFAULT_MAX_CHARS_PER_CHUNK,
+    softMinChars: Math.min(
+      DEFAULT_SOFT_MIN_CHARS_PER_CHUNK,
+      Math.max(80, Math.floor((Number.isFinite(maxChars) ? maxChars : DEFAULT_MAX_CHARS_PER_CHUNK) * 0.6))
+    ),
   };
 }
 
@@ -83,15 +102,27 @@ async function synthesizeDocument(
   await fs.rm(chunkDir, { recursive: true, force: true });
   await fs.mkdir(chunkDir, { recursive: true });
 
-  const chunks = chunkNarrationText(entry.normalizedText);
+  const chunkingConfig = getChunkingConfig();
+  const chunks = chunkNarrationText(entry.normalizedText, chunkingConfig);
   if (chunks.length === 0) {
     throw new Error(`No narration text generated for ${entry.id}`);
   }
+
+  console.log(
+    `Synthesizing ${entry.id}: ${chunks.length} chunk(s), ${entry.normalizedText.length} chars, max ${chunkingConfig.maxChars}/chunk`
+  );
+  console.log(
+    `Estimated time for ${entry.id}: ~${Math.max(1, Math.ceil(chunks.length * 5 / 60))} min at current local Piper speed`
+  );
 
   const chunkBuffers: Buffer[] = [];
 
   for (const chunk of chunks) {
     const chunkPath = path.join(chunkDir, `${String(chunk.index).padStart(4, "0")}.wav`);
+    const chunkStartedAt = Date.now();
+    console.log(
+      `  -> chunk ${chunk.index + 1}/${chunks.length} (${chunk.text.length} chars)`
+    );
     const buffer = await synthesizeWithPiper({
       baseUrl: config.baseUrl,
       voice: config.voice,
@@ -102,6 +133,12 @@ async function synthesizeDocument(
       noiseScale: config.noiseScale,
       noiseWScale: config.noiseWScale,
     });
+    console.log(
+      `  <- chunk ${chunk.index + 1}/${chunks.length} done in ${(
+        (Date.now() - chunkStartedAt) /
+        1000
+      ).toFixed(1)}s`
+    );
     chunkBuffers.push(buffer);
   }
 
@@ -156,6 +193,7 @@ async function run() {
       const buffer = await fs.readFile(output.filePath);
       durationSeconds = concatWaveBuffers([buffer]).durationSeconds;
     } else {
+      const startedAt = Date.now();
       console.log(`Generating audio for ${source.id}`);
       const generated = await synthesizeDocument(
         {
@@ -167,6 +205,9 @@ async function run() {
       );
       audioSrc = generated.audioSrc;
       durationSeconds = generated.durationSeconds;
+      console.log(
+        `Finished ${source.id} in ${((Date.now() - startedAt) / 1000).toFixed(1)}s`
+      );
     }
 
     manifestEntries.push({

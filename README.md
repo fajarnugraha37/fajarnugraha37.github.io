@@ -48,13 +48,50 @@ This project can generate offline narration audio for `blogs` and `series` conte
 
 - `PIPER_BASE_URL` — Piper HTTP server URL, for example `http://127.0.0.1:5000`
 - `PIPER_VOICE` — Piper voice/model name, for example `en_US-lessac-medium`
+- `PIPER_MODEL_PATH` — local `.onnx` path for the helper start script, default `tools/piper/models/en_US-lessac-medium.onnx`
+- `PIPER_VOICE_DOWNLOAD_VERSION` — voice catalog version for automated downloads, default `v1.0.0`
 
 Optional tuning:
 
+- `PIPER_PYTHON`
+- `PIPER_SERVER_PORT`
 - `PIPER_SPEAKER`
 - `PIPER_LENGTH_SCALE`
 - `PIPER_NOISE_SCALE`
 - `PIPER_NOISE_W_SCALE`
+
+### Local Windows setup
+
+1. Install Piper and download the selected model:
+
+```bash
+bun run piper:setup
+```
+
+This setup script:
+
+- installs `piper-tts[http]`
+- downloads the `.onnx` model
+- downloads the `.onnx.json` config
+- downloads the `MODEL_CARD`
+
+2. By default, files are placed here:
+
+```text
+tools/piper/models/en_US-lessac-medium.onnx
+```
+
+3. Check local setup:
+
+```bash
+bun run piper:doctor
+```
+
+4. Start Piper server:
+
+```bash
+bun run piper:start
+```
 
 ### Generate audio
 
