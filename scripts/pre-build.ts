@@ -1,7 +1,7 @@
 import { pipeline } from "@xenova/transformers";
 import fs from "fs/promises";
 import path from "path";
-import matter from "gray-matter";
+import { parseContentFrontmatter } from "../lib/frontmatter";
 
 const CONTENT_DIR = path.join(process.cwd(), "content/blogs");
 const CACHE_DIR = path.join(process.cwd(), ".cache");
@@ -125,7 +125,7 @@ async function run() {
     const slug = file.replace(".mdx", "");
 
     const raw = await fs.readFile(fullPath, "utf-8");
-    const { data, content } = matter(raw);
+    const { data, content } = parseContentFrontmatter(raw);
 
     searchIndex.push({
       id: slug,

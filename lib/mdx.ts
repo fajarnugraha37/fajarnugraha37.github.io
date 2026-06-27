@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
-import matter from "gray-matter";
 import { BlogMetadata, Blog, ContentStats, TocHeading } from "@/types";
+import { parseContentFrontmatter } from "@/lib/frontmatter";
 
 const blogsDirectory = path.join(process.cwd(), "content", "blogs");
 
@@ -16,7 +16,7 @@ export function getSortedBlogsData(): BlogMetadata[] {
       const slug = fileName.replace(/\.mdx$/, "");
       const fullPath = path.join(blogsDirectory, fileName);
       const fileContents = fs.readFileSync(fullPath, "utf8");
-      const { data } = matter(fileContents);
+      const { data } = parseContentFrontmatter(fileContents);
 
       return {
         slug,
@@ -117,7 +117,7 @@ export function getHeadings(title: string, content: string): TocHeading[] {
 export async function getBlogData(slug: string): Promise<Blog> {
   const fullPath = path.join(blogsDirectory, `${slug}.mdx`);
   const fileContents = fs.readFileSync(fullPath, "utf8");
-  const { data, content } = matter(fileContents);
+  const { data, content } = parseContentFrontmatter(fileContents);
   const stats = calculateContentStats(content);
 
   return {

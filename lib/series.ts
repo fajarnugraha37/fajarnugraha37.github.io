@@ -1,12 +1,12 @@
 import fs from "fs";
 import path from "path";
-import matter from "gray-matter";
 import {
   SeriesDetail,
   SeriesPart,
   SeriesSummary,
 } from "@/types";
 import { calculateContentStats } from "@/lib/mdx";
+import { parseContentFrontmatter } from "@/lib/frontmatter";
 
 const seriesRootDirectory = path.join(process.cwd(), "content", "series");
 
@@ -96,7 +96,7 @@ function inferSeriesTitle(seriesSlug: string, parts: string[]) {
 function readSeriesPart(seriesSlug: string, fileName: string): SeriesPart {
   const fullPath = path.join(seriesRootDirectory, seriesSlug, fileName);
   const fileContents = fs.readFileSync(fullPath, "utf8");
-  const { data, content } = matter(fileContents);
+  const { data, content } = parseContentFrontmatter(fileContents);
   const frontmatter = data as SeriesFrontmatter;
   const slug = fileName.replace(/\.mdx$/, "");
   const order = extractOrder(slug, frontmatter.order);
