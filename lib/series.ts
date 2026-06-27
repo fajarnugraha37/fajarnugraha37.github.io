@@ -21,6 +21,11 @@ interface SeriesFrontmatter {
   partTitle?: string;
 }
 
+interface SeriesDirectoryEntry {
+  directorySlug: string;
+  publicSlug: string;
+}
+
 function normalizeDate(value: SeriesFrontmatter["date"]) {
   if (!value) {
     return "";
@@ -127,6 +132,32 @@ function getSeriesDirectoryNames() {
     .map((entry) => entry.name);
 }
 
+function getSeriesDirectoryEntries(): SeriesDirectoryEntry[] {
+  return getSeriesDirectoryNames()
+    .map((directorySlug) => {
+      const parts = getSeriesParts(directorySlug);
+      if (parts.length === 0) {
+        return null;
+      }
+
+      return {
+        directorySlug,
+        publicSlug: parts[0].seriesSlug || directorySlug,
+      } satisfies SeriesDirectoryEntry;
+    })
+    .filter((entry): entry is SeriesDirectoryEntry => entry !== null);
+}
+
+function resolveSeriesDirectorySlug(seriesSlug: string) {
+  const directMatch = getSeriesDirectoryNames().find((directorySlug) => directorySlug === seriesSlug);
+  if (directMatch) {
+    return directMatch;
+  }
+
+  const aliasMatch = getSeriesDirectoryEntries().find((entry) => entry.publicSlug === seriesSlug);
+  return aliasMatch?.directorySlug || null;
+}
+
 function getSeriesParts(seriesSlug: string): SeriesPart[] {
   const seriesDirectory = path.join(seriesRootDirectory, seriesSlug);
   if (!fs.existsSync(seriesDirectory)) {
@@ -149,9 +180,9 @@ function getSeriesParts(seriesSlug: string): SeriesPart[] {
 }
 
 export function getAllSeries(): SeriesSummary[] {
-  return getSeriesDirectoryNames()
-    .map((seriesSlug) => {
-      const parts = getSeriesParts(seriesSlug);
+  return getSeriesDirectoryEntries()
+    .map(({ directorySlug, publicSlug }) => {
+      const parts = getSeriesParts(directorySlug);
       if (parts.length === 0) {
         return null;
       }
@@ -162,7 +193,7 @@ export function getAllSeries(): SeriesSummary[] {
       const tags = Array.from(new Set(parts.flatMap((part) => part.tags))).sort();
 
       return {
-        seriesSlug,
+        seriesSlug: publicSlug,
         seriesTitle: firstPart.seriesTitle,
         description,
         tags,
@@ -176,7 +207,12 @@ export function getAllSeries(): SeriesSummary[] {
 }
 
 export function getSeriesBySlug(seriesSlug: string): SeriesDetail | null {
-  const parts = getSeriesParts(seriesSlug);
+  const directorySlug = resolveSeriesDirectorySlug(seriesSlug);
+  if (!directorySlug) {
+    return null;
+  }
+
+  const parts = getSeriesParts(directorySlug);
   if (parts.length === 0) {
     return null;
   }
@@ -190,7 +226,12 @@ export function getSeriesBySlug(seriesSlug: string): SeriesDetail | null {
 }
 
 export function getSeriesPart(seriesSlug: string, partSlug: string): SeriesPart | null {
-  const parts = getSeriesParts(seriesSlug);
+  const directorySlug = resolveSeriesDirectorySlug(seriesSlug);
+  if (!directorySlug) {
+    return null;
+  }
+
+  const parts = getSeriesParts(directorySlug);
   return parts.find((part) => part.slug === partSlug) || null;
 }
 
