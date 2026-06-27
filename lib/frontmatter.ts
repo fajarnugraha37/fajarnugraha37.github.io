@@ -1,12 +1,24 @@
 import matter from "gray-matter";
 
-function normalizeDescriptionLine(line: string) {
-  const match = line.match(/^description:\s+(.*)$/);
+const TEXT_FRONTMATTER_KEYS = new Set([
+  "title",
+  "description",
+  "seriesTitle",
+  "partTitle",
+]);
+
+function normalizeTextFrontmatterLine(line: string) {
+  const match = line.match(/^([A-Za-z][A-Za-z0-9_-]*):\s+(.*)$/);
   if (!match) {
     return line;
   }
 
-  const value = match[1].trim();
+  const [, key, rawValue] = match;
+  if (!TEXT_FRONTMATTER_KEYS.has(key)) {
+    return line;
+  }
+
+  const value = rawValue.trim();
   if (
     value.length === 0 ||
     value.startsWith('"') ||
@@ -22,7 +34,7 @@ function normalizeDescriptionLine(line: string) {
   }
 
   const escaped = value.replace(/"/g, '\\"');
-  return `description: "${escaped}"`;
+  return `${key}: "${escaped}"`;
 }
 
 export function parseContentFrontmatter(fileContents: string) {
@@ -31,7 +43,7 @@ export function parseContentFrontmatter(fileContents: string) {
     .replace(/^---\n([\s\S]*?)\n---/, (fullMatch, frontmatterBlock: string) => {
       const normalizedBlock = frontmatterBlock
         .split("\n")
-        .map((line) => normalizeDescriptionLine(line))
+        .map((line) => normalizeTextFrontmatterLine(line))
         .join("\n");
 
       return `---\n${normalizedBlock}\n---`;
