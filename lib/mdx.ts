@@ -48,6 +48,41 @@ export function calculateContentStats(rawContent: string): ContentStats {
   return { charCount, wordCount, readingTime };
 }
 
+function escapeAmbiguousComparatorText(segment: string) {
+  return segment
+    .replace(/<->/g, "&lt;->")
+    .replace(/<=/g, "&lt;=")
+    .replace(/<(?=-)/g, "&lt;")
+    .replace(/<(?=\s|\d)/g, "&lt;");
+}
+
+export function normalizeMdxSource(rawContent: string) {
+  const lines = rawContent.split("\n");
+  let inCodeFence = false;
+
+  return lines
+    .map((line) => {
+      if (/^\s*```/.test(line)) {
+        inCodeFence = !inCodeFence;
+        return line;
+      }
+
+      if (inCodeFence) {
+        return line;
+      }
+
+      const segments = line.split(/(`[^`]*`)/g);
+      return segments
+        .map((segment) =>
+          segment.startsWith("`") && segment.endsWith("`")
+            ? segment
+            : escapeAmbiguousComparatorText(segment)
+        )
+        .join("");
+    })
+    .join("\n");
+}
+
 /**
  * Utility: getHeadings
  * Extracts h1-h3 headings from MDX content for TOC generation.

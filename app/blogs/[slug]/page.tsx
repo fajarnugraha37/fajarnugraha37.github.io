@@ -1,4 +1,4 @@
-import { getBlogData, getAllBlogSlugs, getHeadings } from "@/lib/mdx";
+import { getBlogData, getAllBlogSlugs, getHeadings, normalizeMdxSource } from "@/lib/mdx";
 import { BlogContent } from "@/components/organisms/BlogContent";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import { mdxComponents } from "@/components/molecules/MDXComponents";
@@ -72,7 +72,7 @@ export default async function BlogPost({
       audioEntry={audioEntry}
     >
       <MDXRemote
-        source={postData.content}
+        source={normalizeMdxSource(postData.content)}
         components={mdxComponents}
         options={{
           mdxOptions: {

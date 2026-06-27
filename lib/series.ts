@@ -12,13 +12,25 @@ const seriesRootDirectory = path.join(process.cwd(), "content", "series");
 
 interface SeriesFrontmatter {
   title?: string;
-  date?: string;
+  date?: string | Date;
   tags?: string[];
   description?: string;
   series?: string;
   seriesTitle?: string;
   order?: number | string;
   partTitle?: string;
+}
+
+function normalizeDate(value: SeriesFrontmatter["date"]) {
+  if (!value) {
+    return "";
+  }
+
+  if (value instanceof Date) {
+    return value.toISOString().split("T")[0];
+  }
+
+  return String(value);
 }
 
 function ensureSeriesRootExists() {
@@ -92,7 +104,7 @@ function readSeriesPart(seriesSlug: string, fileName: string): SeriesPart {
   return {
     slug,
     title: frontmatter.title || toTitleCase(slug),
-    date: frontmatter.date || "",
+    date: normalizeDate(frontmatter.date),
     tags: frontmatter.tags || [],
     description: frontmatter.description || "",
     content,

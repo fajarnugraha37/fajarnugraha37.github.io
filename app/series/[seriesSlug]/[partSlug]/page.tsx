@@ -10,7 +10,7 @@ import rehypeRaw from "rehype-raw";
 import { mdxComponents } from "@/components/molecules/MDXComponents";
 import { SeriesPartContent } from "@/components/organisms/SeriesPartContent";
 import { getAllSeriesPartParams, getSeriesBySlug, getSeriesPart } from "@/lib/series";
-import { getHeadings } from "@/lib/mdx";
+import { getHeadings, normalizeMdxSource } from "@/lib/mdx";
 import { getSeriesPartAudioEntry } from "@/lib/audio/read";
 
 export function generateStaticParams() {
@@ -76,7 +76,7 @@ export default async function SeriesPartPage({
       audioEntry={audioEntry}
     >
       <MDXRemote
-        source={part.content}
+        source={normalizeMdxSource(part.content)}
         components={mdxComponents}
         options={{
           mdxOptions: {
