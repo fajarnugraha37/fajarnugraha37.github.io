@@ -50,6 +50,7 @@ export function calculateContentStats(rawContent: string): ContentStats {
 
 function escapeAmbiguousComparatorText(segment: string) {
   return segment
+    .replace(/<((?:https?:\/\/|mailto:)[^>\s]+)>/g, "[$1]($1)")
     .replace(/<->/g, "&lt;->")
     .replace(/<=/g, "&lt;=")
     .replace(/<(?=-)/g, "&lt;")
