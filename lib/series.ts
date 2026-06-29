@@ -5,6 +5,7 @@ import {
   SeriesCatalogSection,
   SeriesDetail,
   SeriesManifestEntry,
+  SeriesManifestPhase,
   SeriesManifestSection,
   SeriesPart,
   SeriesPartSummary,
@@ -12,6 +13,7 @@ import {
 } from "@/types";
 import { calculateContentStats } from "@/lib/mdx";
 import { parseContentFrontmatter } from "@/lib/frontmatter";
+import { buildSeriesOverviewPhases } from "@/lib/series-navigation";
 
 const seriesRootDirectory = path.join(process.cwd(), "content", "series");
 const seriesManifestPath = path.join(seriesRootDirectory, "manifest.json");
@@ -124,6 +126,50 @@ function inferSeriesTitle(seriesSlug: string, parts: string[]) {
   }
 
   return toTitleCase(seriesSlug);
+}
+
+function normalizeManifestPhases(value: unknown): SeriesManifestPhase[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const phases = value
+    .map((phase) => {
+      if (!phase || typeof phase !== "object") {
+        return null;
+      }
+
+      const candidate = phase as Partial<SeriesManifestPhase>;
+      if (
+        typeof candidate.id !== "string" ||
+        typeof candidate.title !== "string" ||
+        typeof candidate.fromOrder !== "number" ||
+        typeof candidate.toOrder !== "number"
+      ) {
+        return null;
+      }
+
+      return {
+        id: candidate.id,
+        title: candidate.title,
+        subtitle: candidate.subtitle,
+        description: candidate.description,
+        fromOrder: candidate.fromOrder,
+        toOrder: candidate.toOrder,
+      } satisfies SeriesManifestPhase;
+    })
+    .filter((phase): phase is SeriesManifestPhase => phase !== null);
+
+  return phases.length > 0 ? phases : undefined;
+}
+
+function resolveLatestDate(parts: SeriesPartSummary[]) {
+  const validDates = parts
+    .map((part) => part.date)
+    .filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(date))
+    .sort((left, right) => right.localeCompare(left));
+
+  return validDates[0] || "";
 }
 
 function readSeriesPartSummary(seriesSlug: string, fileName: string): SeriesPartSummary {
@@ -270,7 +316,12 @@ function getSeriesManifest(): SeriesManifestData {
 
     const manifest = {
       sections: Array.isArray(parsed.sections) ? parsed.sections : [],
-      series: Array.isArray(parsed.series) ? parsed.series : [],
+      series: Array.isArray(parsed.series)
+        ? parsed.series.map((entry) => ({
+            ...entry,
+            phases: normalizeManifestPhases((entry as { phases?: unknown }).phases),
+          }))
+        : [],
     };
     seriesManifestCache.value = manifest;
     return manifest;
@@ -297,6 +348,7 @@ function getAllResolvedSeries(): SeriesResolvedSummary[] {
       const description =
         firstPart.description || `Structured learning track for ${firstPart.seriesTitle}.`;
       const tags = Array.from(new Set(parts.flatMap((part) => part.tags))).sort();
+      const latestPart = parts[parts.length - 1];
 
       return {
         directorySlug,
@@ -307,6 +359,8 @@ function getAllResolvedSeries(): SeriesResolvedSummary[] {
         totalParts: parts.length,
         totalReadingTime: parts.reduce((total, part) => total + part.stats.readingTime, 0),
         firstPartSlug: firstPart.slug,
+        latestPartSlug: latestPart.slug,
+        lastUpdated: resolveLatestDate(parts),
       } satisfies SeriesResolvedSummary;
     })
     .filter((series): series is SeriesResolvedSummary => series !== null)
@@ -414,8 +468,13 @@ export function getSeriesBySlug(seriesSlug: string): SeriesDetail | null {
     return null;
   }
 
+  const manifest = getSeriesManifest();
+  const manifestEntry =
+    manifest.series.find((entry) => entry.slug === seriesSlug) ||
+    manifest.series.find((entry) => entry.slug === directorySlug);
+  const phases = buildSeriesOverviewPhases(parts, manifestEntry?.phases);
   const { directorySlug: _directorySlug, ...publicSummary } = summary;
-  const detail = { summary: publicSummary, parts };
+  const detail = { summary: publicSummary, parts, phases };
   seriesDetailCache.set(seriesSlug, detail);
   return detail;
 }

@@ -49,6 +49,23 @@ export interface SeriesPartGroup {
   parts: SeriesPartSummary[];
 }
 
+export interface SeriesManifestPhase {
+  id: string;
+  title: string;
+  subtitle?: string;
+  description?: string;
+  fromOrder: number;
+  toOrder: number;
+}
+
+export interface SeriesOverviewPhase extends SeriesManifestPhase {
+  parts: SeriesPartSummary[];
+  totalParts: number;
+  totalReadingTime: number;
+  firstPartSlug: string;
+  lastPartSlug: string;
+}
+
 export interface SeriesSummary {
   seriesSlug: string;
   seriesTitle: string;
@@ -57,11 +74,14 @@ export interface SeriesSummary {
   totalParts: number;
   totalReadingTime: number;
   firstPartSlug: string;
+  latestPartSlug: string;
+  lastUpdated: string;
 }
 
 export interface SeriesDetail {
   summary: SeriesSummary;
   parts: SeriesPartSummary[];
+  phases: SeriesOverviewPhase[];
 }
 
 export interface SeriesNavLink {
@@ -85,6 +105,7 @@ export interface SeriesManifestEntry {
   featured?: boolean;
   featuredLabel?: string;
   hidden?: boolean;
+  phases?: SeriesManifestPhase[];
 }
 
 export interface SeriesCatalogItem extends SeriesSummary {

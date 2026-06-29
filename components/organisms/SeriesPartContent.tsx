@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { PageTransition } from "@/components/atoms/PageTransition";
@@ -38,6 +38,14 @@ export function SeriesPartContent({
   const lessonHighlights = headings.slice(1, 4);
   const visibleTags = part.tags.slice(0, 4);
   const hiddenTagsCount = Math.max(part.tags.length - visibleTags.length, 0);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(`series-progress:${part.seriesSlug}`, part.slug);
+    } catch {
+      return;
+    }
+  }, [part.seriesSlug, part.slug]);
 
   return (
     <PageTransition>

@@ -1,11 +1,14 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, BookMarked, ChevronLeft } from "lucide-react";
+import { ArrowRight, BookMarked, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { PageTransition } from "@/components/atoms/PageTransition";
 import { PageHeader } from "@/components/molecules/PageHeader";
 import { Button } from "@/components/atoms/Button";
+import { ProgressBar } from "@/components/atoms/ProgressBar";
 import { SeriesDetail } from "@/types";
+import { cn } from "@/lib/utils";
 
 interface SeriesOverviewContentProps {
   series: SeriesDetail;
@@ -13,6 +16,49 @@ interface SeriesOverviewContentProps {
 
 export function SeriesOverviewContent({ series }: SeriesOverviewContentProps) {
   const estimatedHours = Math.max(1, Math.round((series.summary.totalReadingTime / 60) * 10) / 10);
+  const progressStorageKey = `series-progress:${series.summary.seriesSlug}`;
+  const [lastReadSlug, setLastReadSlug] = useState<string | null>(null);
+  const [openPhaseIds, setOpenPhaseIds] = useState<string[]>(
+    series.phases.slice(0, Math.min(2, series.phases.length)).map((phase) => phase.id),
+  );
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(progressStorageKey);
+      if (stored) {
+        setLastReadSlug(stored);
+      }
+    } catch {
+      setLastReadSlug(null);
+    }
+  }, [progressStorageKey]);
+
+  const lastReadIndex = useMemo(
+    () => series.parts.findIndex((part) => part.slug === lastReadSlug),
+    [lastReadSlug, series.parts],
+  );
+  const lastReadPart = lastReadIndex >= 0 ? series.parts[lastReadIndex] : null;
+  const continuePart =
+    lastReadIndex >= 0 && lastReadIndex < series.parts.length - 1
+      ? series.parts[lastReadIndex + 1]
+      : lastReadPart;
+  const activePhase = series.phases.find((phase) =>
+    phase.parts.some((part) => part.slug === (continuePart?.slug || lastReadPart?.slug)),
+  ) || null;
+  const progressPercentage =
+    lastReadPart && series.summary.totalParts > 0
+      ? Math.round((lastReadPart.order / series.summary.totalParts) * 100)
+      : 0;
+  const visibleTags = series.summary.tags.slice(0, 5);
+  const hiddenTagsCount = Math.max(series.summary.tags.length - visibleTags.length, 0);
+
+  function togglePhase(phaseId: string) {
+    setOpenPhaseIds((current) =>
+      current.includes(phaseId)
+        ? current.filter((id) => id !== phaseId)
+        : [...current, phaseId],
+    );
+  }
 
   return (
     <PageTransition>
@@ -32,117 +78,337 @@ export function SeriesOverviewContent({ series }: SeriesOverviewContentProps) {
           tagText="SERIES_OVERVIEW // CURRICULUM_MAP"
           tagIcon={BookMarked}
           subtitle={series.summary.description}
-          className="mb-10"
+          className="mb-8 md:mb-10"
         />
 
-        <div className="grid gap-4 md:grid-cols-[minmax(0,1.3fr)_minmax(280px,0.7fr)] mb-10">
-          <div className="border border-border bg-card/20 p-5 md:p-6">
-            <p className="text-sm font-mono text-muted-foreground leading-relaxed">
-              This track is ordered for sequential learning. Start from the first part if you want the full mental model, or jump directly into a chapter if you already know the foundations.
-            </p>
-            <div className="mt-5 flex flex-col sm:flex-row gap-3">
-              <Button asChild variant="default" size="sm">
-                <Link href={`/series/${series.summary.seriesSlug}/${series.summary.firstPartSlug}`}>
-                  START FROM PART 01
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_280px] mb-8 md:mb-10">
+          <div className="space-y-6">
+            <div className="border border-border bg-card/20 p-5 md:p-6 cyber-chamfer">
+              <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono uppercase tracking-[0.15em] mb-4">
+                <span className="border border-accent/20 bg-accent/5 px-3 py-1 text-accent">
+                  {series.summary.totalParts.toString().padStart(2, "0")} Lessons
+                </span>
+                <span className="border border-accent-secondary/20 bg-accent-secondary/5 px-3 py-1 text-accent-secondary">
+                  {series.summary.totalReadingTime} Min Total
+                </span>
+                <span className="border border-accent-tertiary/20 bg-accent-tertiary/5 px-3 py-1 text-accent-tertiary">
+                  {series.phases.length.toString().padStart(2, "0")} Phases
+                </span>
+              </div>
+
+              <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground md:text-base">
+                This overview is designed to help you choose the right entry point quickly. Follow the full track from lesson one, continue from your last checkpoint, or jump straight into a phase that matches what you need right now.
+              </p>
+
+              <div className="mt-5 flex flex-wrap gap-3">
+                <Button asChild variant="default" size="sm">
+                  <Link href={`/series/${series.summary.seriesSlug}/${series.summary.firstPartSlug}`}>
+                    Start From Lesson 01
+                  </Link>
+                </Button>
+                <Button asChild variant="neutral" size="sm">
+                  <Link href={`/series/${series.summary.seriesSlug}/${series.summary.latestPartSlug}`}>
+                    Jump To Latest Lesson
+                  </Link>
+                </Button>
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-3">
+              <article className="border border-accent/20 bg-accent/5 p-4 md:p-5 cyber-chamfer-sm">
+                <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-accent">
+                  Beginner Path
+                </span>
+                <h2 className="mt-3 text-lg font-bold text-foreground">
+                  Start from the first lesson
+                </h2>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                  Best if you want the full mental model and do not want to guess which prerequisites are assumed later.
+                </p>
+                <Link
+                  href={`/series/${series.summary.seriesSlug}/${series.summary.firstPartSlug}`}
+                  className="mt-4 inline-flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.15em] text-accent hover:text-white transition-colors"
+                >
+                  Open Lesson 01
+                  <ArrowRight className="h-3.5 w-3.5" />
                 </Link>
-              </Button>
-              <Button asChild variant="neutral" size="sm">
-                <Link href={`/series/${series.summary.seriesSlug}/${series.parts[series.parts.length - 1].slug}`}>
-                  JUMP TO LATEST PART
-                </Link>
-              </Button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="border border-accent/20 bg-accent/5 p-4">
-              <div className="text-[9px] font-mono uppercase tracking-[0.15em] text-muted-foreground mb-2">
-                Total Parts
-              </div>
-              <div className="text-2xl font-black text-accent">
-                {series.summary.totalParts.toString().padStart(2, "0")}
-              </div>
-            </div>
-            <div className="border border-accent-secondary/20 bg-accent-secondary/5 p-4">
-              <div className="text-[9px] font-mono uppercase tracking-[0.15em] text-muted-foreground mb-2">
-                Reading Load
-              </div>
-              <div className="text-2xl font-black text-accent-secondary">
-                {series.summary.totalReadingTime}
-              </div>
-              <div className="text-[9px] font-mono uppercase tracking-[0.15em] text-muted-foreground mt-1">
-                MIN TOTAL
-              </div>
-            </div>
-            <div className="border border-accent-tertiary/20 bg-accent-tertiary/5 p-4 col-span-2">
-              <div className="text-[9px] font-mono uppercase tracking-[0.15em] text-muted-foreground mb-2">
-                Estimated Commitment
-              </div>
-              <div className="text-xl font-black text-accent-tertiary">
-                {estimatedHours} HOUR LEARNING TRACK
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3 mb-8">
-          <span className="text-[10px] font-mono uppercase tracking-[0.15em] text-accent bg-accent/5 border border-accent/20 px-3 py-1">
-            {series.summary.totalParts.toString().padStart(2, "0")} PARTS
-          </span>
-          <span className="text-[10px] font-mono uppercase tracking-[0.15em] text-accent-secondary bg-accent-secondary/5 border border-accent-secondary/20 px-3 py-1">
-            {series.summary.totalReadingTime} MIN TOTAL
-          </span>
-          {series.summary.tags.slice(0, 6).map((tag) => (
-            <span
-              key={tag}
-              className="text-[9px] uppercase font-mono tracking-widest px-1.5 py-0.5 border text-muted-foreground border-border bg-card/30"
-            >
-              {tag}
-            </span>
-          ))}
-        </div>
-
-        <div className="mb-4 flex items-center justify-between gap-4">
-          <div>
-            <h2 className="text-lg md:text-xl font-bold text-foreground">
-              Curriculum Map
-            </h2>
-            <p className="text-[11px] md:text-xs font-mono uppercase tracking-[0.15em] text-muted-foreground mt-1">
-              Ordered progression from foundations to advanced topics
-            </p>
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          {series.parts.map((part) => (
-            <Link
-              key={part.slug}
-              href={`/series/${series.summary.seriesSlug}/${part.slug}`}
-              className="group block"
-            >
-              <article className="bg-card/20 border border-border p-4 md:p-5 hover:border-accent transition-all">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-3 mb-2 flex-wrap">
-                      <span className="text-[10px] font-mono uppercase tracking-[0.15em] text-accent-secondary bg-accent-secondary/5 border border-accent-secondary/20 px-2 py-1">
-                        PART {part.order.toString().padStart(2, "0")}
-                      </span>
-                      <span className="text-[10px] font-mono text-muted-foreground">
-                        {part.stats.readingTime} MIN
-                      </span>
-                    </div>
-                    <h2 className="text-lg md:text-xl font-bold text-foreground group-hover:text-accent transition-colors leading-tight">
-                      {part.partTitle || part.title}
-                    </h2>
-                    <p className="text-sm font-mono text-muted-foreground mt-2 leading-relaxed line-clamp-3">
-                      {part.description}
-                    </p>
-                  </div>
-                  <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-accent group-hover:translate-x-1 transition-all shrink-0 mt-1" />
-                </div>
               </article>
-            </Link>
-          ))}
+
+              <article className="border border-border bg-card/20 p-4 md:p-5 cyber-chamfer-sm">
+                <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-accent-secondary">
+                  Continue Path
+                </span>
+                <h2 className="mt-3 text-lg font-bold text-foreground">
+                  {continuePart ? "Pick up where you left off" : "No saved progress yet"}
+                </h2>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                  {continuePart
+                    ? `Your local progress points to lesson ${Math.min(lastReadPart?.order || continuePart.order, series.summary.totalParts).toString().padStart(2, "0")}. Continue with the next most relevant lesson while your context is still fresh.`
+                    : "Once you open a lesson, this page can surface the next recommended step for repeat visits on the same device."}
+                </p>
+                {continuePart ? (
+                  <Link
+                    href={`/series/${series.summary.seriesSlug}/${continuePart.slug}`}
+                    className="mt-4 inline-flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.15em] text-accent-secondary hover:text-white transition-colors"
+                  >
+                    {lastReadIndex >= 0 && lastReadIndex < series.parts.length - 1 ? "Continue Track" : "Review Last Lesson"}
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
+                ) : null}
+              </article>
+
+              <article className="border border-border bg-card/20 p-4 md:p-5 cyber-chamfer-sm">
+                <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-accent-tertiary">
+                  Guided Jump
+                </span>
+                <h2 className="mt-3 text-lg font-bold text-foreground">
+                  Jump by learning phase
+                </h2>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                  Use the phase map when you already know the basics and want the shortest path to one segment of the curriculum.
+                </p>
+                {series.phases[0] ? (
+                  <a
+                    href={`#phase-${series.phases[0].id}`}
+                    className="mt-4 inline-flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.15em] text-accent-tertiary hover:text-white transition-colors"
+                  >
+                    Open Curriculum Map
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </a>
+                ) : null}
+              </article>
+            </div>
+
+            <div className="flex gap-2 overflow-x-auto pb-2 xl:hidden">
+              {series.phases.map((phase, index) => (
+                <a
+                  key={phase.id}
+                  href={`#phase-${phase.id}`}
+                  className="shrink-0 border border-border/60 bg-card/20 px-3 py-2 text-[10px] font-mono uppercase tracking-[0.15em] text-muted-foreground transition-colors hover:border-accent hover:text-accent"
+                >
+                  Phase {(index + 1).toString().padStart(2, "0")} · {phase.title}
+                </a>
+              ))}
+            </div>
+          </div>
+
+          <aside className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="border border-accent/20 bg-accent/5 p-4">
+                <div className="text-[9px] font-mono uppercase tracking-[0.15em] text-muted-foreground mb-2">
+                  Total Parts
+                </div>
+                <div className="text-2xl font-black text-accent">
+                  {series.summary.totalParts.toString().padStart(2, "0")}
+                </div>
+              </div>
+              <div className="border border-accent-secondary/20 bg-accent-secondary/5 p-4">
+                <div className="text-[9px] font-mono uppercase tracking-[0.15em] text-muted-foreground mb-2">
+                  Reading Load
+                </div>
+                <div className="text-2xl font-black text-accent-secondary">
+                  {series.summary.totalReadingTime}
+                </div>
+                <div className="text-[9px] font-mono uppercase tracking-[0.15em] text-muted-foreground mt-1">
+                  Min Total
+                </div>
+              </div>
+              <div className="border border-accent-tertiary/20 bg-accent-tertiary/5 p-4 col-span-2">
+                <div className="text-[9px] font-mono uppercase tracking-[0.15em] text-muted-foreground mb-2">
+                  Estimated Commitment
+                </div>
+                <div className="text-xl font-black text-accent-tertiary">
+                  {estimatedHours} Hour Learning Track
+                </div>
+                {series.summary.lastUpdated ? (
+                  <div className="mt-2 text-[9px] font-mono uppercase tracking-[0.15em] text-muted-foreground">
+                    Last Updated {series.summary.lastUpdated}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="border border-border/50 bg-card/20 p-4 cyber-chamfer-sm">
+              <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-accent">
+                Track Snapshot
+              </span>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {visibleTags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="text-[9px] uppercase font-mono tracking-[0.15em] text-muted-foreground border border-border bg-card/30 px-2 py-1"
+                  >
+                    {tag}
+                  </span>
+                ))}
+                {hiddenTagsCount > 0 ? (
+                  <span className="text-[9px] uppercase font-mono tracking-[0.15em] text-muted-foreground/70 border border-border/60 px-2 py-1">
+                    +{hiddenTagsCount} more
+                  </span>
+                ) : null}
+              </div>
+            </div>
+          </aside>
+        </div>
+
+        <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_280px]">
+          <div className="space-y-5">
+            <div className="mb-4">
+              <h2 className="text-lg md:text-xl font-bold text-foreground">
+                Curriculum Map
+              </h2>
+              <p className="text-[11px] md:text-xs font-mono uppercase tracking-[0.15em] text-muted-foreground mt-1">
+                Navigate by phase, then choose the lesson that matches your current depth.
+              </p>
+            </div>
+
+            {series.phases.map((phase, index) => {
+              const isOpen = openPhaseIds.includes(phase.id);
+
+              return (
+                <section
+                  key={phase.id}
+                  id={`phase-${phase.id}`}
+                  className="scroll-mt-28 border border-border bg-card/20 cyber-chamfer"
+                >
+                  <button
+                    type="button"
+                    onClick={() => togglePhase(phase.id)}
+                    className="flex w-full items-start justify-between gap-4 p-4 text-left md:p-5"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono uppercase tracking-[0.15em]">
+                        <span className="border border-accent/20 bg-accent/5 px-2 py-1 text-accent">
+                          Phase {(index + 1).toString().padStart(2, "0")}
+                        </span>
+                        <span className="text-muted-foreground">
+                          Lessons {phase.fromOrder.toString().padStart(2, "0")}–{phase.toOrder.toString().padStart(2, "0")}
+                        </span>
+                        <span className="text-muted-foreground">
+                          {phase.totalReadingTime} min
+                        </span>
+                      </div>
+
+                      <h3 className="mt-3 text-xl font-bold text-foreground md:text-2xl">
+                        {phase.title}
+                      </h3>
+
+                      {phase.subtitle ? (
+                        <p className="mt-2 text-sm font-mono uppercase tracking-[0.15em] text-muted-foreground">
+                          {phase.subtitle}
+                        </p>
+                      ) : null}
+
+                      {phase.description ? (
+                        <p className="mt-3 max-w-3xl text-sm leading-relaxed text-muted-foreground md:text-base">
+                          {phase.description}
+                        </p>
+                      ) : null}
+                    </div>
+
+                    <div className="mt-1 shrink-0 border border-border/60 p-2 text-muted-foreground md:hidden">
+                      <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")} />
+                    </div>
+                  </button>
+
+                  <div className={cn("border-t border-border/50", isOpen ? "block" : "hidden md:block")}>
+                    <div className="divide-y divide-border/40">
+                      {phase.parts.map((part) => (
+                        <Link
+                          key={part.slug}
+                          href={`/series/${series.summary.seriesSlug}/${part.slug}`}
+                          className="group grid grid-cols-[auto_minmax(0,1fr)_auto] gap-4 p-4 transition-colors hover:bg-accent/5 md:p-5"
+                        >
+                          <div className="border border-accent-secondary/20 bg-accent-secondary/5 px-2 py-1 text-[10px] font-mono uppercase tracking-[0.15em] text-accent-secondary h-fit">
+                            {part.order.toString().padStart(2, "0")}
+                          </div>
+
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h4 className="text-base font-bold leading-tight text-foreground transition-colors group-hover:text-accent md:text-lg">
+                                {part.partTitle || part.title}
+                              </h4>
+                              <span className="text-[10px] font-mono uppercase tracking-[0.15em] text-muted-foreground">
+                                {part.stats.readingTime} min
+                              </span>
+                            </div>
+                            <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
+                              {part.description}
+                            </p>
+                          </div>
+
+                          <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground transition-all group-hover:translate-x-1 group-hover:text-accent" />
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                </section>
+              );
+            })}
+          </div>
+
+          <aside className="hidden xl:block">
+            <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto pr-2 space-y-4">
+              <div className="border border-border bg-card/20 p-4 cyber-chamfer-sm">
+                <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-accent">
+                  Jump Across Track
+                </span>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                  Use this rail to move between phases instead of scanning the full page every time.
+                </p>
+
+                <nav className="mt-4 space-y-2">
+                  {series.phases.map((phase, index) => (
+                    <a
+                      key={phase.id}
+                      href={`#phase-${phase.id}`}
+                      className="block border border-border/50 bg-card/10 px-3 py-3 transition-colors hover:border-accent hover:text-accent"
+                    >
+                      <span className="block text-[9px] font-mono uppercase tracking-[0.15em] text-muted-foreground">
+                        Phase {(index + 1).toString().padStart(2, "0")}
+                      </span>
+                      <span className="mt-1 block text-sm font-semibold text-foreground">
+                        {phase.title}
+                      </span>
+                      <span className="mt-1 block text-[10px] font-mono uppercase tracking-[0.15em] text-muted-foreground">
+                        {phase.totalParts.toString().padStart(2, "0")} lessons · {phase.totalReadingTime} min
+                      </span>
+                    </a>
+                  ))}
+                </nav>
+              </div>
+
+              <div className="border border-border bg-card/20 p-4 cyber-chamfer-sm">
+                <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-accent-secondary">
+                  Progress Memory
+                </span>
+                {lastReadPart ? (
+                  <>
+                    <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                      Last opened lesson: <span className="text-foreground">{lastReadPart.partTitle || lastReadPart.title}</span>
+                      {activePhase ? ` in ${activePhase.title}` : ""}.
+                    </p>
+                    <div className="mt-4">
+                      <ProgressBar value={progressPercentage} label="Track Progress" color="bg-accent-secondary" />
+                    </div>
+                    {continuePart ? (
+                      <Link
+                        href={`/series/${series.summary.seriesSlug}/${continuePart.slug}`}
+                        className="mt-4 inline-flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.15em] text-accent-secondary hover:text-white transition-colors"
+                      >
+                        {lastReadIndex >= 0 && lastReadIndex < series.parts.length - 1 ? "Continue Next Lesson" : "Reopen Last Lesson"}
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      </Link>
+                    ) : null}
+                  </>
+                ) : (
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                    Open any lesson once and this overview will keep a lightweight local checkpoint on this device.
+                  </p>
+                )}
+              </div>
+            </div>
+          </aside>
         </div>
       </div>
     </PageTransition>
