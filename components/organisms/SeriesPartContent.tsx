@@ -231,7 +231,7 @@ export function SeriesPartContent({
 
           {showToc && (
             <aside className="hidden xl:block relative">
-              <div className="sticky top-24 font-mono text-xs">
+              <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto pr-2 font-mono text-xs">
                 <h3 className="text-accent uppercase tracking-widest mb-6 border-b border-border pb-2">
                   [ ON_THIS_PAGE ]
                 </h3>

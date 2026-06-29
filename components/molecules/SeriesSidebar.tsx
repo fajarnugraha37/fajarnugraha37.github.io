@@ -23,7 +23,7 @@ export function SeriesSidebar({
   const activeIndex = parts.findIndex((part) => part.slug === activePartSlug);
 
   return (
-    <div className="sticky top-24 font-mono text-xs space-y-4">
+    <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto pr-2 font-mono text-xs space-y-4">
       <h3 className="text-accent uppercase tracking-widest border-b border-border pb-2">
         [ LEARNING_FLOW ]
       </h3>

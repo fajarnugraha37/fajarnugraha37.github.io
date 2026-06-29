@@ -22,7 +22,7 @@ export function RecentTransmissionsSection({
         <div className="flex items-center justify-between mb-8 md:mb-12">
           <h2 className="text-3xl md:text-4xl font-bold font-sans text-foreground flex items-center gap-4">
             <span className="text-accent-tertiary drop-shadow-[0_0_5px_#ffd700]">
-              05 //
+              06 //
             </span>{" "}
             RECENT TRANSMISSIONS
           </h2>
