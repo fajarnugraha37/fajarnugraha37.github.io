@@ -4,18 +4,20 @@ const isWriteMode = process.env.NEXT_PUBLIC_APP_MODE === 'write';
 const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://fajarnugraha37.github.io';
 const nodeEnv = process.env.NODE_ENV || 'production';
 const disableHmr = process.env.DISABLE_HMR === 'true';
+const enableProductionSourceMaps = process.env.ENABLE_PRODUCTION_BROWSER_SOURCEMAPS === 'true';
 console.log('-------------- Next.js Configuration --------------');
 console.log(` App Mode: ${process.env.NEXT_PUBLIC_APP_MODE}`);
 console.log(` Base URL: ${baseUrl}`);
 console.log(` Node Environment: ${nodeEnv}`);
 console.log(` Disable HMR: ${disableHmr}`);
+console.log(` Browser Source Maps: ${enableProductionSourceMaps}`);
 console.log('---------------------------------------------------');
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   output: isWriteMode ? 'standalone' : 'export',
   trailingSlash: true,
-  productionBrowserSourceMaps: true,
+  productionBrowserSourceMaps: enableProductionSourceMaps,
   eslint: {
     ignoreDuringBuilds: true,
   },
