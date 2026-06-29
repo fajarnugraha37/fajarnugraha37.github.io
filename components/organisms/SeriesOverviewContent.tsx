@@ -81,8 +81,8 @@ export function SeriesOverviewContent({ series }: SeriesOverviewContentProps) {
           className="mb-8 md:mb-10"
         />
 
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_280px] mb-8 md:mb-10">
-          <div className="space-y-6">
+        <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_280px]">
+          <div className="space-y-8">
             <div className="border border-border bg-card/20 p-5 md:p-6 cyber-chamfer">
               <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono uppercase tracking-[0.15em] mb-4">
                 <span className="border border-accent/20 bg-accent/5 px-3 py-1 text-accent">
@@ -103,80 +103,42 @@ export function SeriesOverviewContent({ series }: SeriesOverviewContentProps) {
               <div className="mt-5 flex flex-wrap gap-3">
                 <Button asChild variant="default" size="sm">
                   <Link href={`/series/${series.summary.seriesSlug}/${series.summary.firstPartSlug}`}>
-                    Start From Lesson 01
+                    Start From First Lesson
                   </Link>
                 </Button>
-                <Button asChild variant="neutral" size="sm">
-                  <Link href={`/series/${series.summary.seriesSlug}/${series.summary.latestPartSlug}`}>
-                    Jump To Latest Lesson
-                  </Link>
-                </Button>
-              </div>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-3">
-              <article className="border border-accent/20 bg-accent/5 p-4 md:p-5 cyber-chamfer-sm">
-                <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-accent">
-                  Beginner Path
-                </span>
-                <h2 className="mt-3 text-lg font-bold text-foreground">
-                  Start from the first lesson
-                </h2>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                  Best if you want the full mental model and do not want to guess which prerequisites are assumed later.
-                </p>
-                <Link
-                  href={`/series/${series.summary.seriesSlug}/${series.summary.firstPartSlug}`}
-                  className="mt-4 inline-flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.15em] text-accent hover:text-white transition-colors"
-                >
-                  Open Lesson 01
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
-              </article>
-
-              <article className="border border-border bg-card/20 p-4 md:p-5 cyber-chamfer-sm">
-                <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-accent-secondary">
-                  Continue Path
-                </span>
-                <h2 className="mt-3 text-lg font-bold text-foreground">
-                  {continuePart ? "Pick up where you left off" : "No saved progress yet"}
-                </h2>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                  {continuePart
-                    ? `Your local progress points to lesson ${Math.min(lastReadPart?.order || continuePart.order, series.summary.totalParts).toString().padStart(2, "0")}. Continue with the next most relevant lesson while your context is still fresh.`
-                    : "Once you open a lesson, this page can surface the next recommended step for repeat visits on the same device."}
-                </p>
-                {continuePart ? (
-                  <Link
-                    href={`/series/${series.summary.seriesSlug}/${continuePart.slug}`}
-                    className="mt-4 inline-flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.15em] text-accent-secondary hover:text-white transition-colors"
-                  >
-                    {lastReadIndex >= 0 && lastReadIndex < series.parts.length - 1 ? "Continue Track" : "Review Last Lesson"}
-                    <ArrowRight className="h-3.5 w-3.5" />
-                  </Link>
+                {lastReadPart ? (
+                  <Button asChild variant="neutral" size="sm">
+                    <Link href={`/series/${series.summary.seriesSlug}/${lastReadPart.slug}`}>
+                      Continue Last Lesson
+                    </Link>
+                  </Button>
                 ) : null}
-              </article>
-
-              <article className="border border-border bg-card/20 p-4 md:p-5 cyber-chamfer-sm">
-                <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-accent-tertiary">
-                  Guided Jump
-                </span>
-                <h2 className="mt-3 text-lg font-bold text-foreground">
-                  Jump by learning phase
-                </h2>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                  Use the phase map when you already know the basics and want the shortest path to one segment of the curriculum.
-                </p>
                 {series.phases[0] ? (
-                  <a
-                    href={`#phase-${series.phases[0].id}`}
-                    className="mt-4 inline-flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.15em] text-accent-tertiary hover:text-white transition-colors"
-                  >
-                    Open Curriculum Map
-                    <ArrowRight className="h-3.5 w-3.5" />
-                  </a>
+                  <Button asChild variant="outline" size="sm">
+                    <a href={`#phase-${series.phases[0].id}`}>
+                      Open Curriculum Map
+                    </a>
+                  </Button>
                 ) : null}
-              </article>
+              </div>
+
+              {visibleTags.length > 0 ? (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {visibleTags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="text-[9px] uppercase font-mono tracking-[0.15em] text-muted-foreground border border-border bg-card/30 px-2 py-1"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                  {hiddenTagsCount > 0 ? (
+                    <span className="text-[9px] uppercase font-mono tracking-[0.15em] text-muted-foreground/70 border border-border/60 px-2 py-1">
+                      +{hiddenTagsCount} more
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
 
             <div className="flex gap-2 overflow-x-auto pb-2 xl:hidden">
@@ -190,69 +152,6 @@ export function SeriesOverviewContent({ series }: SeriesOverviewContentProps) {
                 </a>
               ))}
             </div>
-          </div>
-
-          <aside className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="border border-accent/20 bg-accent/5 p-4">
-                <div className="text-[9px] font-mono uppercase tracking-[0.15em] text-muted-foreground mb-2">
-                  Total Parts
-                </div>
-                <div className="text-2xl font-black text-accent">
-                  {series.summary.totalParts.toString().padStart(2, "0")}
-                </div>
-              </div>
-              <div className="border border-accent-secondary/20 bg-accent-secondary/5 p-4">
-                <div className="text-[9px] font-mono uppercase tracking-[0.15em] text-muted-foreground mb-2">
-                  Reading Load
-                </div>
-                <div className="text-2xl font-black text-accent-secondary">
-                  {series.summary.totalReadingTime}
-                </div>
-                <div className="text-[9px] font-mono uppercase tracking-[0.15em] text-muted-foreground mt-1">
-                  Min Total
-                </div>
-              </div>
-              <div className="border border-accent-tertiary/20 bg-accent-tertiary/5 p-4 col-span-2">
-                <div className="text-[9px] font-mono uppercase tracking-[0.15em] text-muted-foreground mb-2">
-                  Estimated Commitment
-                </div>
-                <div className="text-xl font-black text-accent-tertiary">
-                  {estimatedHours} Hour Learning Track
-                </div>
-                {series.summary.lastUpdated ? (
-                  <div className="mt-2 text-[9px] font-mono uppercase tracking-[0.15em] text-muted-foreground">
-                    Last Updated {series.summary.lastUpdated}
-                  </div>
-                ) : null}
-              </div>
-            </div>
-
-            <div className="border border-border/50 bg-card/20 p-4 cyber-chamfer-sm">
-              <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-accent">
-                Track Snapshot
-              </span>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {visibleTags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="text-[9px] uppercase font-mono tracking-[0.15em] text-muted-foreground border border-border bg-card/30 px-2 py-1"
-                  >
-                    {tag}
-                  </span>
-                ))}
-                {hiddenTagsCount > 0 ? (
-                  <span className="text-[9px] uppercase font-mono tracking-[0.15em] text-muted-foreground/70 border border-border/60 px-2 py-1">
-                    +{hiddenTagsCount} more
-                  </span>
-                ) : null}
-              </div>
-            </div>
-          </aside>
-        </div>
-
-        <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_280px]">
-          <div className="space-y-5">
             <div className="mb-4">
               <h2 className="text-lg md:text-xl font-bold text-foreground">
                 Curriculum Map
@@ -347,8 +246,74 @@ export function SeriesOverviewContent({ series }: SeriesOverviewContentProps) {
             })}
           </div>
 
-          <aside className="hidden xl:block">
-            <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto pr-2 space-y-4">
+          <aside className="xl:block">
+            <div className="space-y-4 xl:sticky xl:top-24 xl:max-h-[calc(100vh-7rem)] xl:overflow-y-auto xl:pr-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="border border-accent/20 bg-accent/5 p-4">
+                <div className="text-[9px] font-mono uppercase tracking-[0.15em] text-muted-foreground mb-2">
+                  Total Parts
+                </div>
+                <div className="text-2xl font-black text-accent">
+                  {series.summary.totalParts.toString().padStart(2, "0")}
+                </div>
+              </div>
+              <div className="border border-accent-secondary/20 bg-accent-secondary/5 p-4">
+                <div className="text-[9px] font-mono uppercase tracking-[0.15em] text-muted-foreground mb-2">
+                  Reading Load
+                </div>
+                <div className="text-2xl font-black text-accent-secondary">
+                  {series.summary.totalReadingTime}
+                </div>
+                <div className="text-[9px] font-mono uppercase tracking-[0.15em] text-muted-foreground mt-1">
+                  Min Total
+                </div>
+              </div>
+              <div className="border border-accent-tertiary/20 bg-accent-tertiary/5 p-4 col-span-2">
+                <div className="text-[9px] font-mono uppercase tracking-[0.15em] text-muted-foreground mb-2">
+                  Estimated Commitment
+                </div>
+                <div className="text-xl font-black text-accent-tertiary">
+                  {estimatedHours} Hour Learning Track
+                </div>
+                {series.summary.lastUpdated ? (
+                  <div className="mt-2 text-[9px] font-mono uppercase tracking-[0.15em] text-muted-foreground">
+                    Last Updated {series.summary.lastUpdated}
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="col-span-2 border border-border/50 bg-card/20 p-4 cyber-chamfer-sm">
+                <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-accent-secondary">
+                  Progress Memory
+                </span>
+                {lastReadPart ? (
+                  <>
+                    <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                      Last opened lesson: <span className="text-foreground">{lastReadPart.partTitle || lastReadPart.title}</span>
+                      {activePhase ? ` in ${activePhase.title}` : ""}.
+                    </p>
+                    <div className="mt-4">
+                      <ProgressBar value={progressPercentage} label="Track Progress" color="bg-accent-secondary" />
+                    </div>
+                    {continuePart ? (
+                      <Link
+                        href={`/series/${series.summary.seriesSlug}/${continuePart.slug}`}
+                        className="mt-4 inline-flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.15em] text-accent-secondary hover:text-white transition-colors"
+                      >
+                        {lastReadIndex >= 0 && lastReadIndex < series.parts.length - 1 ? "Continue Next Lesson" : "Reopen Last Lesson"}
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      </Link>
+                    ) : null}
+                  </>
+                ) : (
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                    Open any lesson once and this overview will keep a lightweight local checkpoint on this device.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-4">
               <div className="border border-border bg-card/20 p-4 cyber-chamfer-sm">
                 <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-accent">
                   Jump Across Track
@@ -378,35 +343,7 @@ export function SeriesOverviewContent({ series }: SeriesOverviewContentProps) {
                 </nav>
               </div>
 
-              <div className="border border-border bg-card/20 p-4 cyber-chamfer-sm">
-                <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-accent-secondary">
-                  Progress Memory
-                </span>
-                {lastReadPart ? (
-                  <>
-                    <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                      Last opened lesson: <span className="text-foreground">{lastReadPart.partTitle || lastReadPart.title}</span>
-                      {activePhase ? ` in ${activePhase.title}` : ""}.
-                    </p>
-                    <div className="mt-4">
-                      <ProgressBar value={progressPercentage} label="Track Progress" color="bg-accent-secondary" />
-                    </div>
-                    {continuePart ? (
-                      <Link
-                        href={`/series/${series.summary.seriesSlug}/${continuePart.slug}`}
-                        className="mt-4 inline-flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.15em] text-accent-secondary hover:text-white transition-colors"
-                      >
-                        {lastReadIndex >= 0 && lastReadIndex < series.parts.length - 1 ? "Continue Next Lesson" : "Reopen Last Lesson"}
-                        <ChevronRight className="h-3.5 w-3.5" />
-                      </Link>
-                    ) : null}
-                  </>
-                ) : (
-                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                    Open any lesson once and this overview will keep a lightweight local checkpoint on this device.
-                  </p>
-                )}
-              </div>
+            </div>
             </div>
           </aside>
         </div>
