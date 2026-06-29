@@ -1,7 +1,8 @@
 "use client";
 
+import { useMemo } from "react";
 import Link from "next/link";
-import { ChevronLeft, LibraryBig } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { PageTransition } from "@/components/atoms/PageTransition";
 import { TocNav } from "@/components/molecules/TocNav";
 import { ContentAudioPlayer } from "@/components/molecules/ContentAudioPlayer";
@@ -9,6 +10,7 @@ import { AudioManifestEntry, SeriesPart, SeriesPartSummary, TocHeading } from "@
 import { SeriesSidebar } from "@/components/molecules/SeriesSidebar";
 import { SeriesMobileNavigator } from "@/components/molecules/SeriesMobileNavigator";
 import { SeriesPrevNextNav } from "@/components/molecules/SeriesPrevNextNav";
+import { getSeriesGroupForPart, groupSeriesParts } from "@/lib/series-navigation";
 
 interface SeriesPartContentProps {
   part: SeriesPart;
@@ -29,97 +31,147 @@ export function SeriesPartContent({
   audioEntry,
   children,
 }: SeriesPartContentProps) {
-  const showToc = headings.length > 1;
+  const groups = useMemo(() => groupSeriesParts(parts), [parts]);
+  const currentGroup = useMemo(() => getSeriesGroupForPart(groups, part.slug), [groups, part.slug]);
+  const showToc = headings.length > 2;
   const displayTitle = part.partTitle || part.title;
+  const lessonHighlights = headings.slice(1, 4);
+  const visibleTags = part.tags.slice(0, 4);
+  const hiddenTagsCount = Math.max(part.tags.length - visibleTags.length, 0);
 
   return (
     <PageTransition>
       <div className="relative min-h-screen">
-        <article className={`max-w-[1500px] mx-auto relative z-10 px-4 pt-6 md:pt-12 grid grid-cols-1 ${showToc ? "lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)_220px]" : "lg:grid-cols-[260px_minmax(0,1fr)]"} gap-6 lg:gap-8 xl:gap-10`}>
+        <article className={`max-w-[1500px] mx-auto relative z-10 px-4 pt-6 pb-28 md:pt-10 lg:pb-12 grid grid-cols-1 ${showToc ? "lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)_220px]" : "lg:grid-cols-[260px_minmax(0,1fr)]"} gap-6 lg:gap-8 xl:gap-10`}>
           <aside className="hidden lg:block relative">
             <SeriesSidebar
               seriesSlug={part.seriesSlug}
               activePartSlug={part.slug}
-              parts={parts}
+              groups={groups}
               seriesTitle={part.seriesTitle}
+              activeGroupId={currentGroup?.id}
             />
           </aside>
 
           <div className="min-w-0">
-            <div className="sticky top-16 z-30 bg-background/90 backdrop-blur-xl border-b border-accent/20 shadow-[0_15px_35px_rgba(0,0,0,0.9)] -mx-4 md:-mx-8 mb-6 md:mb-8 px-4 md:px-8 py-3 md:py-4">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="sticky top-16 z-30 -mx-4 mb-6 border-b border-accent/20 bg-background/90 px-4 py-3 shadow-[0_10px_25px_rgba(0,0,0,0.45)] backdrop-blur-xl md:mb-8">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2 text-[9px] font-mono uppercase tracking-[0.15em] text-muted-foreground mb-2">
+                  <div className="flex items-center gap-2 text-[9px] font-mono uppercase tracking-[0.15em] text-muted-foreground">
                     <Link href="/series" className="hover:text-accent transition-colors">
                       Series
                     </Link>
                     <span>/</span>
-                    <Link href={`/series/${part.seriesSlug}`} className="hover:text-accent transition-colors truncate">
+                    <Link href={`/series/${part.seriesSlug}`} className="truncate hover:text-accent transition-colors">
                       {part.seriesTitle}
                     </Link>
                   </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
                   <Link
                     href={`/series/${part.seriesSlug}`}
-                    className="inline-flex items-center text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground hover:text-accent transition-all group"
+                    className="inline-flex items-center gap-1 border border-border/60 px-2 py-1 text-[9px] font-mono uppercase tracking-[0.15em] text-muted-foreground transition-colors hover:border-accent hover:text-accent"
                   >
-                    <div className="mr-3 p-1 border border-border group-hover:border-accent group-hover:bg-accent group-hover:text-black transition-all cyber-chamfer-sm">
-                      <ChevronLeft className="w-3 h-3" />
-                    </div>
-                    <span>BACK_TO_SERIES</span>
+                    <ChevronLeft className="h-3 w-3" />
+                    Series Map
                   </Link>
-                </div>
-                <div className="flex items-center gap-2">
                   <span className="text-[10px] font-mono uppercase tracking-[0.15em] text-accent-secondary bg-accent-secondary/5 border border-accent-secondary/20 px-2 py-1">
-                    PART {part.order.toString().padStart(2, "0")} / {parts.length.toString().padStart(2, "0")}
+                    Lesson {part.order.toString().padStart(2, "0")} / {parts.length.toString().padStart(2, "0")}
                   </span>
                 </div>
               </div>
             </div>
 
+            <div className="mb-6 space-y-4 md:mb-8">
+              <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono uppercase tracking-[0.15em]">
+                {currentGroup ? (
+                  <span className="border border-accent/20 bg-accent/5 px-2 py-1 text-accent">
+                    {currentGroup.title}
+                  </span>
+                ) : null}
+                <span className="text-muted-foreground">
+                  Ordered learning track
+                </span>
+              </div>
+
+              <h1 id={headings[0]?.id} className="text-3xl font-black leading-tight tracking-tighter text-foreground md:text-5xl">
+                {displayTitle}
+              </h1>
+
+              {displayTitle !== part.title ? (
+                <p className="text-sm font-mono text-muted-foreground md:text-base">
+                  {part.title}
+                </p>
+              ) : null}
+
+              <p className="max-w-3xl text-base leading-relaxed text-muted-foreground md:text-lg">
+                {part.description}
+              </p>
+
+              <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono uppercase tracking-[0.15em]">
+                <time className="border border-accent-secondary/20 bg-accent-secondary/5 px-2 py-1 text-accent-secondary">
+                  [{part.date}]
+                </time>
+                <span className="text-muted-foreground">
+                  {part.stats.readingTime} min read
+                </span>
+                <span className="text-muted-foreground">
+                  {part.stats.wordCount} words
+                </span>
+              </div>
+
+              {lessonHighlights.length > 0 ? (
+                <div className="border border-border/50 bg-card/20 p-4 md:p-5">
+                  <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-accent">
+                    In This Lesson
+                  </span>
+                  <div className="mt-3 grid gap-2 md:grid-cols-3">
+                    {lessonHighlights.map((heading) => (
+                      <a
+                        key={heading.id}
+                        href={`#${heading.id}`}
+                        className="border border-border/50 bg-background/40 px-3 py-3 text-sm leading-relaxed text-muted-foreground transition-colors hover:border-accent/50 hover:text-foreground"
+                      >
+                        {heading.text}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
             <SeriesMobileNavigator
               seriesSlug={part.seriesSlug}
               activePartSlug={part.slug}
-              parts={parts}
+              groups={groups}
+              previousPart={previousPart}
+              nextPart={nextPart}
+              activeGroupId={currentGroup?.id}
             />
 
-            <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.15em] text-accent mb-2">
-              <LibraryBig className="w-3 h-3" />
-              <span>{part.seriesTitle}</span>
-            </div>
-
-            <div className="mb-3 flex flex-wrap items-center gap-2 text-[10px] font-mono uppercase tracking-[0.15em]">
+            <div className="mb-4 flex flex-wrap items-center gap-2 text-[10px] font-mono uppercase tracking-[0.15em]">
               <span className="text-accent-secondary bg-accent-secondary/5 border border-accent-secondary/20 px-2 py-1">
-                PART {part.order.toString().padStart(2, "0")}
+                Lesson {part.order.toString().padStart(2, "0")}
               </span>
               <span className="text-muted-foreground">
-                {parts.length.toString().padStart(2, "0")} PART TRACK
+                {parts.length.toString().padStart(2, "0")} lesson track
               </span>
+              {currentGroup ? (
+                <span className="text-accent">
+                  {currentGroup.parts[0].order.toString().padStart(2, "0")}–{currentGroup.parts[currentGroup.parts.length - 1].order.toString().padStart(2, "0")} {currentGroup.title}
+                </span>
+              ) : null}
             </div>
 
-            <h1 id={headings[0]?.id} className="text-2xl md:text-4xl font-black text-foreground leading-tight tracking-tighter mb-2">
-              {displayTitle}
-            </h1>
+            {audioEntry ? (
+              <ContentAudioPlayer
+                audio={audioEntry}
+                label="Listen to this lesson"
+              />
+            ) : null}
 
-            {displayTitle !== part.title && (
-              <p className="text-sm md:text-base font-mono text-muted-foreground mb-4 leading-relaxed">
-                {part.title}
-              </p>
-            )}
-
-            <div className="flex flex-wrap items-center gap-3 mb-5 md:mb-6">
-              <time className="text-accent-secondary font-mono text-[10px] bg-accent-secondary/5 border border-accent-secondary/20 px-2 py-0.5">
-                [{part.date}]
-              </time>
-              <span className="text-[10px] font-mono text-muted-foreground">
-                {part.stats.readingTime} MIN READ
-              </span>
-              <span className="text-[10px] font-mono text-muted-foreground">
-                {part.stats.wordCount} WORDS
-              </span>
-            </div>
-
-            <div className="flex flex-wrap gap-2 mb-6 md:mb-8">
-              {part.tags.map((tag) => (
+            <div className="mb-6 flex flex-wrap gap-2 md:mb-8">
+              {visibleTags.map((tag) => (
                 <span
                   key={tag}
                   className="text-[10px] md:text-xs uppercase font-mono tracking-[0.15em] text-accent-tertiary bg-accent-tertiary/10 border border-accent-tertiary/30 px-3 py-1 cyber-chamfer-sm"
@@ -127,18 +179,46 @@ export function SeriesPartContent({
                   #{tag}
                 </span>
               ))}
+              {hiddenTagsCount > 0 ? (
+                <span className="text-[10px] md:text-xs uppercase font-mono tracking-[0.15em] text-muted-foreground border border-border/60 px-3 py-1">
+                  +{hiddenTagsCount} more
+                </span>
+              ) : null}
             </div>
 
-            {audioEntry && (
-              <ContentAudioPlayer
-                audio={audioEntry}
-                label="Listen to this lesson"
-              />
-            )}
-
-            <div className="markdown-body p-4 md:p-8 bg-card/5 border border-border/20 text-foreground/90 font-mono relative overflow-x-auto">
+            <div
+              className="markdown-body relative overflow-x-auto border border-border/20 bg-card/5 p-4 text-foreground/90 md:p-8"
+              style={{ fontFamily: "Inter, system-ui, sans-serif" }}
+            >
               <div className="relative z-10 prose prose-invert max-w-none">
                 {children}
+              </div>
+            </div>
+
+            <div className="mt-6 border border-border/40 bg-card/10 p-4 md:p-5">
+              <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-accent">
+                Lesson Recap
+              </span>
+              <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted-foreground md:text-base">
+                You just completed lesson {part.order.toString().padStart(2, "0")}
+                {currentGroup ? ` in ${currentGroup.title.toLowerCase()}` : ""}. Use the series map if you want to review the broader track, or continue directly into the next lesson while the context is still warm.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Link
+                  href={`/series/${part.seriesSlug}`}
+                  className="inline-flex items-center gap-2 border border-border/60 px-3 py-2 text-[10px] font-mono uppercase tracking-[0.15em] text-muted-foreground transition-colors hover:border-accent hover:text-accent"
+                >
+                  <ChevronLeft className="h-3 w-3" />
+                  Back To Series
+                </Link>
+                {nextPart ? (
+                  <Link
+                    href={`/series/${part.seriesSlug}/${nextPart.slug}`}
+                    className="inline-flex items-center gap-2 border border-accent/30 bg-accent/10 px-3 py-2 text-[10px] font-mono uppercase tracking-[0.15em] text-accent transition-colors hover:bg-accent hover:text-black"
+                  >
+                    Next Lesson
+                  </Link>
+                ) : null}
               </div>
             </div>
 
@@ -153,7 +233,7 @@ export function SeriesPartContent({
             <aside className="hidden xl:block relative">
               <div className="sticky top-24 font-mono text-xs">
                 <h3 className="text-accent uppercase tracking-widest mb-6 border-b border-border pb-2">
-                  [ STRUCTURE ]
+                  [ ON_THIS_PAGE ]
                 </h3>
                 <TocNav headings={headings} />
               </div>

@@ -16,7 +16,17 @@ export function SeriesPrevNextNav({
   nextPart,
 }: SeriesPrevNextNavProps) {
   return (
-    <div className="grid gap-4 md:grid-cols-2 mt-10 pt-8 border-t border-border/40">
+    <div className="mt-10 border-t border-border/40 pt-8">
+      <div className="mb-4">
+        <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-accent">
+          Continue The Track
+        </span>
+        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+          Keep the momentum while the lesson is still fresh. Move backward for review or continue forward into the next concept.
+        </p>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
       {previousPart ? (
         <Link
           href={`/series/${seriesSlug}/${previousPart.slug}`}
@@ -24,10 +34,10 @@ export function SeriesPrevNextNav({
         >
           <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.15em] text-muted-foreground mb-2">
             <ChevronLeft className="w-3 h-3 group-hover:-translate-x-1 transition-transform" />
-            Previous Part
+            Previous Lesson
           </div>
           <div className="text-[9px] font-mono uppercase tracking-[0.15em] text-accent-secondary mb-1">
-            PART {previousPart.order.toString().padStart(2, "0")}
+            Lesson {previousPart.order.toString().padStart(2, "0")}
           </div>
           <div className="text-foreground group-hover:text-accent transition-colors">
             {previousPart.partTitle || previousPart.title}
@@ -45,11 +55,11 @@ export function SeriesPrevNextNav({
           className="group border border-border bg-card/20 p-4 hover:border-accent transition-all text-right"
         >
           <div className="flex items-center justify-end gap-2 text-[10px] font-mono uppercase tracking-[0.15em] text-muted-foreground mb-2">
-            Next Part
+            Next Lesson
             <ChevronRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
           </div>
           <div className="text-[9px] font-mono uppercase tracking-[0.15em] text-accent-secondary mb-1">
-            PART {nextPart.order.toString().padStart(2, "0")}
+            Lesson {nextPart.order.toString().padStart(2, "0")}
           </div>
           <div className="text-foreground group-hover:text-accent transition-colors">
             {nextPart.partTitle || nextPart.title}
@@ -60,6 +70,7 @@ export function SeriesPrevNextNav({
           END_OF_SERIES
         </div>
       )}
+      </div>
     </div>
   );
 }

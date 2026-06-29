@@ -42,6 +42,13 @@ export interface SeriesPartSummary extends SeriesPartMetadata {
   stats: ContentStats;
 }
 
+export interface SeriesPartGroup {
+  id: string;
+  title: string;
+  subtitle?: string;
+  parts: SeriesPartSummary[];
+}
+
 export interface SeriesSummary {
   seriesSlug: string;
   seriesTitle: string;
