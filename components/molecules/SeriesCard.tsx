@@ -23,7 +23,7 @@ export function SeriesCard({ series, index, featuredLabel, compact = false }: Se
         <article
           className={cn(
             "relative h-full overflow-hidden border border-border bg-card/30 cyber-chamfer transition-all duration-300 hover:border-accent",
-            compact ? "p-3.5 md:p-3.5" : "p-5 md:p-6",
+            compact ? "p-3 md:p-3.5" : "p-5 md:p-6",
           )}
         >
           <div className="absolute inset-0 bg-accent/[0.03] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
@@ -34,12 +34,12 @@ export function SeriesCard({ series, index, featuredLabel, compact = false }: Se
             )}
           />
 
-          <div className={cn("relative z-10 flex flex-wrap items-center gap-2", compact ? "mb-2.5" : "mb-4")}>
+          <div className={cn("relative z-10 flex flex-wrap items-center gap-2", compact ? "mb-2" : "mb-4")}>
             {featuredLabel ? (
               <span
                 className={cn(
                   "font-mono uppercase tracking-[0.15em] text-accent bg-accent/5 border border-accent/20",
-                  compact ? "px-1.5 py-0.5 text-[9px]" : "px-2 py-1 text-[10px]",
+                  compact ? "px-1.5 py-0.5 text-[8px]" : "px-2 py-1 text-[10px]",
                 )}
               >
                 {featuredLabel}
@@ -60,7 +60,7 @@ export function SeriesCard({ series, index, featuredLabel, compact = false }: Se
           <h2
             className={cn(
               "mb-3 font-bold leading-tight text-foreground transition-colors group-hover:text-accent",
-              compact ? "mb-1.5 text-base md:text-lg" : "text-xl md:text-2xl",
+              compact ? "mb-1 text-[15px] md:text-base" : "text-xl md:text-2xl",
             )}
           >
             {series.seriesTitle}
@@ -69,13 +69,13 @@ export function SeriesCard({ series, index, featuredLabel, compact = false }: Se
           <p
             className={cn(
               "font-mono text-sm leading-relaxed text-muted-foreground",
-              compact ? "line-clamp-1 text-[12px] md:text-[13px]" : "line-clamp-3",
+              compact ? "line-clamp-1 text-[11px] md:text-[12px]" : "line-clamp-3",
             )}
           >
             {series.description}
           </p>
 
-          <div className={cn("flex flex-wrap items-center gap-x-3 gap-y-2", compact ? "mt-2" : "mt-5")}>
+          <div className={cn("flex flex-wrap items-center gap-x-3 gap-y-2", compact ? "mt-1.5" : "mt-5")}>
             {compact ? (
               <span className="text-[10px] font-mono uppercase tracking-[0.15em] text-accent-secondary">
                 {series.totalParts.toString().padStart(2, "0")} parts
@@ -86,17 +86,22 @@ export function SeriesCard({ series, index, featuredLabel, compact = false }: Se
                 {series.totalReadingTime} min
               </span>
             ) : null}
-            {series.tags.slice(0, compact ? 2 : 5).map((tag) => (
+            {series.tags.slice(0, compact ? 1 : 5).map((tag) => (
               <span
                 key={tag}
                 className={cn(
                   "uppercase font-mono tracking-widest border text-muted-foreground border-border bg-card/30",
-                  compact ? "px-1.5 py-0.5 text-[8px]" : "px-1.5 py-0.5 text-[9px]",
+                  compact ? "px-1.5 py-0.5 text-[7px]" : "px-1.5 py-0.5 text-[9px]",
                 )}
               >
                 {tag}
               </span>
             ))}
+            {compact && series.tags.length > 1 ? (
+              <span className="text-[7px] font-mono uppercase tracking-[0.15em] text-muted-foreground/70">
+                +{series.tags.length - 1}
+              </span>
+            ) : null}
           </div>
 
           {!compact ? (
@@ -105,7 +110,7 @@ export function SeriesCard({ series, index, featuredLabel, compact = false }: Se
               <div className="h-px flex-1 bg-accent/20" />
             </div>
           ) : (
-            <div className="mt-2.5 flex items-center justify-between border-t border-border/60 pt-2 text-[10px] font-mono uppercase tracking-[0.15em] text-muted-foreground">
+            <div className="mt-2 flex items-center justify-between border-t border-border/60 pt-2 text-[9px] font-mono uppercase tracking-[0.15em] text-muted-foreground">
               <span>View Track</span>
               <span className="text-accent transition-colors group-hover:text-accent-secondary">
                 Open
