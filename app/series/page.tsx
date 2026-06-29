@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { SeriesListSection } from "@/components/organisms/SeriesListSection";
-import { getAllSeries } from "@/lib/series";
+import { getSeriesCatalog } from "@/lib/series";
 
 export const metadata: Metadata = {
   title: "Series | Fajar Abdi Nugraha",
@@ -9,6 +9,6 @@ export const metadata: Metadata = {
 };
 
 export default function SeriesPage() {
-  const seriesList = getAllSeries();
-  return <SeriesListSection seriesList={seriesList} />;
+  const catalog = getSeriesCatalog();
+  return <SeriesListSection catalog={catalog} />;
 }

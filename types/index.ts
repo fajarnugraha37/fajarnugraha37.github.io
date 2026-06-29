@@ -59,6 +59,40 @@ export interface SeriesNavLink {
   order: number;
 }
 
+export interface SeriesManifestSection {
+  id: string;
+  title: string;
+  subtitle?: string;
+  description?: string;
+  order: number;
+}
+
+export interface SeriesManifestEntry {
+  slug: string;
+  section: string;
+  order: number;
+  featured?: boolean;
+  featuredLabel?: string;
+  hidden?: boolean;
+}
+
+export interface SeriesCatalogItem extends SeriesSummary {
+  sectionId: string;
+  seriesOrder: number;
+  featured: boolean;
+  featuredLabel?: string;
+}
+
+export interface SeriesCatalogSection {
+  id: string;
+  title: string;
+  subtitle?: string;
+  description?: string;
+  order: number;
+  featured: SeriesCatalogItem[];
+  items: SeriesCatalogItem[];
+}
+
 export type AudioContentKind = "blog" | "series-part";
 
 export interface AudioManifestEntry {
