@@ -7,16 +7,16 @@ import { ScrollReveal } from "@/components/atoms/ScrollReveal";
 
 export function HardwareNodesSection() {
   return (
-    <section className="py-16 md:py-24 border-t border-border relative overflow-hidden">
+    <section className="py-14 md:py-20 border-t border-border relative overflow-hidden">
       {/* <div className="absolute inset-0 bg-gradient-to-b from-background via-accent/5 to-background -z-10 pointer-events-none opacity-25" /> */}
 
       <ScrollReveal direction="up">
-        <div className="flex items-center justify-between mb-8 md:mb-12 px-4">
+        <div className="flex items-center justify-between mb-5 md:mb-8 px-4">
           <h2 className="text-3xl md:text-4xl font-bold font-sans text-foreground flex items-center gap-4 text-center mx-auto md:mx-0">
             <span className="text-accent drop-shadow-[0_0_5px_#ff7300]">
-              01 //
+              03 //
             </span>{" "}
-            LABORATORY DASHBOARD
+            INTERACTIVE LABS
           </h2>
           <Link
             href="/labs"
@@ -24,6 +24,15 @@ export function HardwareNodesSection() {
           >
             [VIEW_ALL_MODULES] <ChevronRight className="w-4 h-4" />
           </Link>
+        </div>
+      </ScrollReveal>
+
+      <ScrollReveal delay={0.05} direction="up">
+        <div className="max-w-3xl px-4 mb-8 md:mb-10">
+          <p className="text-sm leading-relaxed text-muted-foreground md:text-base">
+            Explore hands-on browser labs after you want to test ideas, inspect systems,
+            or experiment directly instead of only reading.
+          </p>
         </div>
       </ScrollReveal>
 

@@ -9,11 +9,15 @@ import { FeaturedSeriesSection } from "@/components/organisms/FeaturedSeriesSect
 import { RecentTransmissionsSection } from "@/components/organisms/RecentTransmissionsSection";
 import React, { useState } from "react";
 import { cn } from "@/lib/utils";
-import { BlogMetadata, SeriesSummary } from "@/types";
+import { BlogMetadata, SeriesCatalogItem } from "@/types";
+
+type HomeFeaturedSeries = SeriesCatalogItem & {
+  sectionTitle: string;
+};
 
 interface HomeContentProps {
   recentBlogs: BlogMetadata[];
-  featuredSeries: SeriesSummary[];
+  featuredSeries: HomeFeaturedSeries[];
   jsonLd: any;
 }
 
@@ -45,7 +49,7 @@ export function HomeContent({ recentBlogs, featuredSeries, jsonLd }: HomeContent
             : "bg-accent/5 opacity-40"
         )} />
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-8 items-center">
           <div className="lg:col-span-7">
             <HeroSection onBootComplete={() => setIsBooted(true)} />
           </div>
@@ -54,10 +58,10 @@ export function HomeContent({ recentBlogs, featuredSeries, jsonLd }: HomeContent
           </div>
         </div>
 
-        <HardwareNodesSection />
-        <ParadigmsSection />
         <FeaturedSeriesSection seriesList={featuredSeries} />
         <RecentTransmissionsSection recentBlogs={recentBlogs} />
+        <HardwareNodesSection />
+        <ParadigmsSection />
       </div>
     </PageTransition>
   );

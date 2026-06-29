@@ -21,7 +21,7 @@ export function HeroSection({ onBootComplete }: HeroSectionProps) {
   }, [onBootComplete]);
 
   return (
-    <section className="flex-1 flex flex-col justify-center py-10 md:py-20 relative">
+    <section className="flex-1 flex flex-col justify-center py-8 md:py-20 relative">
       {/* Glow Orbs - Dynamic Transition */}
       <div className={cn(
         "absolute top-1/4 right-0 w-64 md:w-96 h-64 md:h-96 blur-[100px] rounded-full pointer-events-none transition-colors duration-1000",
@@ -71,21 +71,41 @@ export function HeroSection({ onBootComplete }: HeroSectionProps) {
 
         <ScrollReveal delay={0.2} direction="right">
           <div className="max-w-md">
-            <h2 className="text-base md:text-lg text-foreground/80 leading-relaxed font-mono mt-4 font-normal normal-case">
-              A <strong>Software Engineer</strong> and sometimes a{" "}
-              <strong>Solution Architect</strong> who builds and operates
+            <p className="mt-4 text-base leading-relaxed text-foreground/80 md:text-lg font-mono normal-case">
+              A <strong>
+                <span className={cn(
+                  "transition-colors duration-700",
+                  isReady ? "text-accent drop-shadow-[0_0_5px_rgba(0,255,136,0.5)]" : "text-accent-secondary"
+                )}>
+                  <strong>Software Engineer</strong>
+                </span>  
+              </strong> and sometimes a{" "}
+              <strong>
+                <span className={cn(
+                  "transition-colors duration-700",
+                  isReady ? "text-accent drop-shadow-[0_0_5px_rgba(0,255,136,0.5)]" : "text-accent-secondary"
+                )}>
+                  Solution Architect
+                </span>
+              </strong> who builds and operates
               systems. My job is to keep production running, annual plans
               aligned, technical decisions made responsibly, deliveries
-              predictable, and scope honest.
-              <span className={cn(
-                "block mt-2 transition-colors duration-700",
-                isReady ? "text-accent drop-shadow-[0_0_5px_rgba(0,255,136,0.5)]" : "text-accent-secondary"
-              )}>
-                <strong>Software Engineer</strong>
-              </span>
-            </h2>
+              predictable, scope honest and production boring.
+            </p>
 
-            <div className="mt-8 flex items-center gap-4 text-[10px] font-bold font-sans uppercase tracking-widest">
+            <p className="mt-3 text-sm leading-relaxed text-muted-foreground md:text-base">
+              I write and build around backend engineering, system design, operational
+              judgment, and delivery discipline.
+            </p>
+
+            <p className={cn(
+              "mt-3 text-[11px] font-mono uppercase tracking-[0.15em] transition-colors duration-700",
+              isReady ? "text-accent drop-shadow-[0_0_5px_rgba(0,255,136,0.5)]" : "text-accent-secondary"
+            )}>
+              Start with a guided learning track, then dive into essays or hands-on labs.
+            </p>
+
+            <div className="mt-6 hidden sm:flex items-center gap-4 text-[10px] font-bold font-sans uppercase tracking-widest">
               <span className="text-muted-foreground">Status:</span>
               <div className="flex items-center gap-3">
                 <div className="relative flex items-center justify-center w-3 h-3">
@@ -112,7 +132,7 @@ export function HeroSection({ onBootComplete }: HeroSectionProps) {
               </div>
             </div>
 
-            <div className="mt-4 flex items-center gap-4 text-[10px] font-bold font-sans uppercase tracking-widest">
+            <div className="mt-3 hidden sm:flex items-center gap-4 text-[10px] font-bold font-sans uppercase tracking-widest">
               <span className="text-muted-foreground gap-2">Load_Readiness:</span>
               <AnimatedNumber 
                 suffix="%" 
@@ -131,23 +151,23 @@ export function HeroSection({ onBootComplete }: HeroSectionProps) {
               asChild
               className="group w-full sm:w-auto text-center justify-center"
             >
-              <Link href="/labs">ACCESS_LABS.EXE</Link>
+              <Link href="/series">START_SERIES</Link>
             </Button>
             <Button
               variant="outline"
-              size="lg"
+              size="default"
               asChild
               className="w-full sm:w-auto text-center justify-center hover:border-accent-secondary hover:text-accent-secondary hover:shadow-[0_0_15px_rgba(255,0,127,0.4)]"
             >
               <Link href="/blogs">READ_BLOGS</Link>
             </Button>
             <Button
-              variant="outline"
-              size="lg"
+              variant="ghost"
+              size="sm"
               asChild
-              className="w-full sm:w-auto text-center justify-center hover:border-accent-tertiary hover:text-accent-tertiary hover:shadow-[0_0_15px_rgba(0,212,255,0.35)]"
+              className="w-full sm:w-auto text-center justify-center hover:text-accent-tertiary"
             >
-              <Link href="/series">START_SERIES</Link>
+              <Link href="/labs">ACCESS_LABS.EXE</Link>
             </Button>
           </div>
         </ScrollReveal>

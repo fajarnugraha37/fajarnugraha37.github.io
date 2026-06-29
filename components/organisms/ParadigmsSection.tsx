@@ -5,20 +5,29 @@ import { ScrollReveal } from "@/components/atoms/ScrollReveal";
 
 export function ParadigmsSection() {
   return (
-    <section className="py-16 md:py-24 border-t border-border relative overflow-hidden">
+    <section className="py-14 md:py-20 border-t border-border relative overflow-hidden">
       {/* <div className="absolute inset-0 cyber-grid-bg opacity-30 -z-10 bg-repeat bg-center" /> */}
 
       {/* Sunset Glow Overlay for Section */}
       {/* <div className="absolute inset-0 bg-gradient-to-b from-background via-accent-secondary/5 to-background -z-10 pointer-events-none opacity-25" /> */}
 
       <ScrollReveal direction="up">
-        <div className="flex items-center justify-between mb-8 md:mb-12">
+        <div className="flex items-center justify-between mb-5 md:mb-8">
           <h2 className="text-3xl md:text-4xl font-bold font-sans text-foreground">
             <span className="text-accent drop-shadow-[0_0_5px_#ff7300]">
-              02 //
+              04 //
             </span>{" "}
-            CORE PARADIGMS
+            WORKING PRINCIPLES
           </h2>
+        </div>
+      </ScrollReveal>
+
+      <ScrollReveal delay={0.05} direction="up">
+        <div className="mb-8 md:mb-10 max-w-3xl">
+          <p className="text-sm leading-relaxed text-muted-foreground md:text-base">
+            These are the design instincts and operating assumptions behind the code,
+            writing, and systems work across this site.
+          </p>
         </div>
       </ScrollReveal>
 

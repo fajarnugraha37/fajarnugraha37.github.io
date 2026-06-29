@@ -1,5 +1,5 @@
 import { getSortedBlogsData } from "@/lib/mdx";
-import { getAllSeries } from "@/lib/series";
+import { getSeriesCatalog } from "@/lib/series";
 import { HomeContent } from "@/components/organisms/HomeContent";
 
 /**
@@ -8,7 +8,14 @@ import { HomeContent } from "@/components/organisms/HomeContent";
  */
 export default async function Home() {
   const recentBlogs = getSortedBlogsData().slice(0, 3);
-  const featuredSeries = getAllSeries().slice(0, 2);
+  const featuredSeries = getSeriesCatalog()
+    .flatMap((section) =>
+      section.featured.map((item) => ({
+        ...item,
+        sectionTitle: section.title,
+      })),
+    )
+    .slice(0, 3);
 
   const jsonLd = {
     "@context": "https://schema.org",
