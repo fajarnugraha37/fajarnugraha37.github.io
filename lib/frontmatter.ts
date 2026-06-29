@@ -40,7 +40,7 @@ function normalizeTextFrontmatterLine(line: string) {
 export function parseContentFrontmatter(fileContents: string) {
   const normalized = fileContents
     .replace(/\r\n/g, "\n")
-    .replace(/^---\n([\s\S]*?)\n---/, (fullMatch, frontmatterBlock: string) => {
+    .replace(/^(-{3,})\n([\s\S]*?)\n\1/, (fullMatch, _delimiter: string, frontmatterBlock: string) => {
       const normalizedBlock = frontmatterBlock
         .split("\n")
         .map((line) => normalizeTextFrontmatterLine(line))

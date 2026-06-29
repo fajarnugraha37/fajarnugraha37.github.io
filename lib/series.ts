@@ -31,6 +31,10 @@ interface SeriesDirectoryEntry {
   publicSlug: string;
 }
 
+interface SeriesResolvedSummary extends SeriesSummary {
+  directorySlug: string;
+}
+
 interface SeriesManifestData {
   sections: SeriesManifestSection[];
   series: SeriesManifestEntry[];
@@ -92,6 +96,11 @@ function extractOrder(fileSlug: string, frontmatterOrder?: number | string) {
   return Number.MAX_SAFE_INTEGER;
 }
 
+function inferPublicSeriesSlug(directorySlug: string, fileSlug: string) {
+  const prefix = fileSlug.split("-part-")[0]?.trim();
+  return prefix || directorySlug;
+}
+
 function inferSeriesTitle(seriesSlug: string, parts: string[]) {
   const commonPrefix = parts[0]
     ?.split("-part-")[0]
@@ -115,6 +124,7 @@ function readSeriesPart(seriesSlug: string, fileName: string): SeriesPart {
   const frontmatter = data as SeriesFrontmatter;
   const slug = fileName.replace(/\.mdx$/, "");
   const order = extractOrder(slug, frontmatter.order);
+  const inferredSeriesSlug = inferPublicSeriesSlug(seriesSlug, slug);
 
   return {
     slug,
@@ -126,7 +136,7 @@ function readSeriesPart(seriesSlug: string, fileName: string): SeriesPart {
     stats: calculateContentStats(content),
     order,
     partTitle: frontmatter.partTitle,
-    seriesSlug: frontmatter.series || seriesSlug,
+    seriesSlug: frontmatter.series || inferredSeriesSlug,
     seriesTitle: frontmatter.seriesTitle || "",
   };
 }
@@ -207,7 +217,7 @@ function getSeriesManifest(): SeriesManifestData {
   }
 }
 
-export function getAllSeries(): SeriesSummary[] {
+function getAllResolvedSeries(): SeriesResolvedSummary[] {
   return getSeriesDirectoryEntries()
     .map(({ directorySlug, publicSlug }) => {
       const parts = getSeriesParts(directorySlug);
@@ -221,6 +231,7 @@ export function getAllSeries(): SeriesSummary[] {
       const tags = Array.from(new Set(parts.flatMap((part) => part.tags))).sort();
 
       return {
+        directorySlug,
         seriesSlug: publicSlug,
         seriesTitle: firstPart.seriesTitle,
         description,
@@ -228,18 +239,24 @@ export function getAllSeries(): SeriesSummary[] {
         totalParts: parts.length,
         totalReadingTime: parts.reduce((total, part) => total + part.stats.readingTime, 0),
         firstPartSlug: firstPart.slug,
-      } satisfies SeriesSummary;
+      } satisfies SeriesResolvedSummary;
     })
-    .filter((series): series is SeriesSummary => series !== null)
+    .filter((series): series is SeriesResolvedSummary => series !== null)
     .sort((left, right) => left.seriesTitle.localeCompare(right.seriesTitle));
 }
 
+export function getAllSeries(): SeriesSummary[] {
+  return getAllResolvedSeries().map(({ directorySlug: _directorySlug, ...series }) => series);
+}
+
 export function getSeriesCatalog(): SeriesCatalogSection[] {
-  const summaries = getAllSeries();
+  const summaries = getAllResolvedSeries();
   const manifest = getSeriesManifest();
   const manifestBySlug = new Map(manifest.series.map((entry) => [entry.slug, entry]));
   const sectionMetaById = new Map(manifest.sections.map((section) => [section.id, section]));
   const sections = [...manifest.sections];
+  const getManifestEntryForSeries = (seriesSlug: string, directorySlug?: string) =>
+    manifestBySlug.get(seriesSlug) || (directorySlug ? manifestBySlug.get(directorySlug) : undefined);
 
   if (!sectionMetaById.has("uncategorized")) {
     const fallbackSection: SeriesManifestSection = {
@@ -255,7 +272,7 @@ export function getSeriesCatalog(): SeriesCatalogSection[] {
   }
 
   const catalogItems: SeriesCatalogItem[] = summaries.map((series) => {
-    const manifestEntry = manifestBySlug.get(series.seriesSlug);
+    const manifestEntry = getManifestEntryForSeries(series.seriesSlug, series.directorySlug);
     const sectionId =
       manifestEntry?.section && sectionMetaById.has(manifestEntry.section)
         ? manifestEntry.section
@@ -268,13 +285,13 @@ export function getSeriesCatalog(): SeriesCatalogSection[] {
       featured: manifestEntry?.featured ?? false,
       featuredLabel: manifestEntry?.featuredLabel,
     };
-  });
+  }).map(({ directorySlug: _directorySlug, ...series }) => series);
 
   return sections
     .sort((left, right) => left.order - right.order)
     .map((section) => {
       const visibleItems = catalogItems
-        .filter((item) => item.sectionId === section.id && !(manifestBySlug.get(item.seriesSlug)?.hidden))
+        .filter((item) => item.sectionId === section.id && !getManifestEntryForSeries(item.seriesSlug)?.hidden)
         .sort((left, right) => {
           if (left.seriesOrder !== right.seriesOrder) {
             return left.seriesOrder - right.seriesOrder;

@@ -5,14 +5,15 @@ import { SeriesCard } from "@/components/molecules/SeriesCard";
 
 interface FeaturedSeriesRowProps {
   items: SeriesCatalogItem[];
+  title?: string;
 }
 
-export function FeaturedSeriesRow({ items }: FeaturedSeriesRowProps) {
+export function FeaturedSeriesRow({ items, title = "Featured Tracks" }: FeaturedSeriesRowProps) {
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-3">
         <span className="text-[10px] font-mono uppercase tracking-[0.25em] text-accent-secondary">
-          Featured Tracks
+          {title}
         </span>
         <div className="h-px flex-1 bg-gradient-to-r from-accent-secondary/40 to-transparent" />
       </div>
