@@ -3,17 +3,41 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ChevronDown } from "lucide-react";
 import { SearchPalette } from "@/components/molecules/SearchPalette";
 import { MobileNav } from "@/components/molecules/MobileNav";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 
-const NAV_LINKS = [
-  { href: "/blogs", label: "/Blogs", activeClass: "text-accent" },
-  { href: "/series", label: "/Series", activeClass: "text-accent-tertiary" },
-  { href: "/about", label: "/About", activeClass: "text-accent-secondary" },
-  { href: "/labs", label: "/Labs", activeClass: "text-accent-tertiary" },
-  { href: "/feed.xml", label: "/RSS Feed", activeClass: "text-accent" },
+const PRIMARY_NAV_LINKS = [
+  {
+    href: "/series",
+    label: "/Series",
+    activeClass: "text-accent-tertiary border-accent-tertiary/70",
+  },
+  {
+    href: "/blogs",
+    label: "/Blogs",
+    activeClass: "text-accent border-accent/70",
+  },
+  {
+    href: "/labs",
+    label: "/Labs",
+    activeClass: "text-accent-secondary border-accent-secondary/70",
+  },
+];
+
+const SECONDARY_NAV_LINKS = [
+  {
+    href: "/about",
+    label: "/About",
+    activeClass: "text-accent-secondary",
+  },
+  {
+    href: "/feed.xml",
+    label: "/RSS",
+    activeClass: "text-accent",
+  },
 ];
 
 const LAB_LINKS = [
@@ -44,6 +68,8 @@ export function Header() {
   };
 
   const isAnyMenuOpen = isSearchOpen || isMobileNavOpen;
+  const isActive = (href: string) =>
+    href === "/labs" ? pathname.startsWith("/labs") : pathname === href;
 
   return (
     <>
@@ -59,49 +85,84 @@ export function Header() {
             </Link>
 
             {/* Desktop nav */}
-            <nav className="hidden md:flex gap-8 text-xs uppercase tracking-widest items-center">
-              {NAV_LINKS.map((link) => (
-                <div key={link.href} className="relative group">
-                  <Link
-                    href={link.href}
-                    className={cn(
-                      "hover:text-accent transition-colors",
-                      pathname.startsWith(link.href) && link.activeClass
-                    )}
-                    prefetch={link.href.endsWith(".xml") ? false : undefined}
-                  >
-                    {link.label}
-                    {link.href === "/labs" && (
-                      <span className="ml-1 text-[8px] opacity-50 group-hover:rotate-180 transition-transform duration-300 inline-block">
-                        ▼
+            <nav className="hidden md:flex items-center gap-5">
+              <div className="flex items-center gap-5 text-[11px] uppercase tracking-[0.18em]">
+                {PRIMARY_NAV_LINKS.map((link) => (
+                  <div key={link.href} className="relative group">
+                    <Link
+                      href={link.href}
+                      className={cn(
+                        "flex items-center gap-1.5 border-b border-transparent py-1 text-foreground/72 transition-colors hover:text-foreground",
+                        isActive(link.href) && link.activeClass
+                      )}
+                      prefetch={link.href.endsWith(".xml") ? false : undefined}
+                    >
+                      <span className="font-mono text-[9px] text-accent/55">
+                        {isActive(link.href) ? ">" : "/"}
                       </span>
-                    )}
-                  </Link>
+                      {link.label.replace("/", "")}
+                      {link.href === "/labs" && (
+                        <ChevronDown className="h-3.5 w-3.5 text-muted-foreground transition-transform duration-200 group-hover:rotate-180 group-hover:text-accent-secondary" />
+                      )}
+                    </Link>
 
-                  {link.href === "/labs" && (
-                    <div className="absolute top-full -left-4 pt-4 opacity-0 translate-y-2 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto transition-all duration-300 z-50">
-                      <div className="min-w-[180px] bg-background border border-border p-2 cyber-chamfer-sm shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
-                        <div className="absolute inset-0 cyber-grid-bg opacity-10 pointer-events-none" />
-                        {LAB_LINKS.map((lab) => (
+                    {link.href === "/labs" && (
+                      <div className="absolute top-full left-0 pt-4 opacity-0 translate-y-2 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto transition-all duration-300 z-50">
+                        <div className="relative min-w-[280px] border border-border bg-background/95 p-3 shadow-[0_14px_36px_rgba(0,0,0,0.45)] backdrop-blur-md">
+                          <div className="absolute inset-0 cyber-grid-bg opacity-10 pointer-events-none" />
+                          <div className="relative mb-3 border-b border-border/50 pb-3">
+                            <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-accent-secondary">
+                              Interactive Labs
+                            </p>
+                            <p className="mt-1 max-w-[220px] text-[11px] leading-relaxed text-muted-foreground">
+                              Hands-on playgrounds for SQL, OLAP, media, and content workflows.
+                            </p>
+                          </div>
+                          <div className="relative space-y-1">
+                            {LAB_LINKS.map((lab) => (
+                              <Link
+                                key={lab.href}
+                                href={lab.href}
+                                className={cn(
+                                  "block border-l-2 border-transparent px-3 py-2 font-mono text-[10px] transition-all hover:bg-accent/10 hover:border-accent",
+                                  lab.hoverClass
+                                )}
+                              >
+                                {lab.label}
+                              </Link>
+                            ))}
+                          </div>
                           <Link
-                            key={lab.href}
-                            href={lab.href}
-                            className={cn(
-                              "block px-3 py-2 hover:bg-accent/10 transition-all border-l-2 border-transparent hover:border-accent font-mono text-[10px]",
-                              lab.hoverClass
-                            )}
+                            href="/labs"
+                            className="relative mt-3 flex items-center justify-between border-t border-border/50 pt-3 text-[10px] font-mono uppercase tracking-[0.16em] text-muted-foreground transition-colors hover:text-accent-secondary"
                           >
-                            {lab.label}
+                            <span>Open Lab Directory</span>
+                            <span className="text-accent-secondary">→</span>
                           </Link>
-                        ))}
-                        <div className="mt-2 pt-2 border-t border-border/50 text-[8px] px-3 text-muted-foreground italic">
-                          Labolatory
                         </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              ))}
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="h-5 w-px bg-border/70" />
+
+              <div className="flex items-center gap-4 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                {SECONDARY_NAV_LINKS.map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    prefetch={link.href.endsWith(".xml") ? false : undefined}
+                    className={cn(
+                      "transition-colors hover:text-foreground",
+                      isActive(link.href) && link.activeClass
+                    )}
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+              </div>
             </nav>
           </div>
 
@@ -113,7 +174,11 @@ export function Header() {
             >
               Contact.exe
             </Link>
-            <MobileNav isOpen={isMobileNavOpen} setIsOpen={setIsMobileNavOpen} />
+            <MobileNav
+              isOpen={isMobileNavOpen}
+              setIsOpen={setIsMobileNavOpen}
+              onOpenSearch={() => setIsSearchOpen(true)}
+            />
           </div>
         </div>
       </header>

@@ -74,9 +74,10 @@ const NAV_LINKS: NavLink[] = [
 interface MobileNavProps {
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
+  onOpenSearch: () => void;
 }
 
-export function MobileNav({ isOpen, setIsOpen }: MobileNavProps) {
+export function MobileNav({ isOpen, setIsOpen, onOpenSearch }: MobileNavProps) {
   const [expandedLabs, setExpandedLabs] = useState(false);
   const pathname = usePathname();
 
@@ -84,6 +85,11 @@ export function MobileNav({ isOpen, setIsOpen }: MobileNavProps) {
     setIsOpen(false);
     setExpandedLabs(false);
   }, [setIsOpen]);
+
+  const handleSearchOpen = useCallback(() => {
+    handleClose();
+    onOpenSearch();
+  }, [handleClose, onOpenSearch]);
 
   // Handle navigation updates via effect - close menu when route changes
   const isInitialMount = useRef(true);
@@ -136,8 +142,24 @@ export function MobileNav({ isOpen, setIsOpen }: MobileNavProps) {
           {/* Grid scanline decoration */}
           <div className="absolute inset-0 cyber-grid-bg opacity-20 pointer-events-none" />
 
+          <div className="relative border-b border-border/50 p-4">
+            <button
+              type="button"
+              onClick={handleSearchOpen}
+              className="flex w-full items-center justify-between border border-border bg-card/40 px-4 py-3 text-left text-[11px] font-mono uppercase tracking-[0.15em] text-muted-foreground transition-colors hover:border-accent hover:text-accent"
+            >
+              <span>Search</span>
+              <span className="text-accent/60">⌘K</span>
+            </button>
+          </div>
+
+          <div className="relative">
+            <div className="px-6 pt-4 pb-2 text-[10px] font-mono uppercase tracking-[0.2em] text-accent">
+              Explore
+            </div>
+          </div>
           <ul className="relative flex flex-col divide-y divide-border/50">
-            {NAV_LINKS.map((link) => (
+            {NAV_LINKS.filter((link) => !link.highlight && link.href !== "/feed.xml").map((link) => (
               <li key={link.href} className="flex flex-col">
                 {link.children ? (
                   <>
@@ -198,6 +220,37 @@ export function MobileNav({ isOpen, setIsOpen }: MobileNavProps) {
               </li>
             ))}
           </ul>
+
+          <div className="relative px-6 pt-4 pb-2 text-[10px] font-mono uppercase tracking-[0.2em] text-accent-tertiary">
+            Utility
+          </div>
+          <div className="relative flex flex-col divide-y divide-border/50">
+            <Link
+              href="/feed.xml"
+              prefetch={false}
+              onClick={handleClose}
+              className={`flex items-center gap-3 px-6 py-4 font-sans text-sm uppercase tracking-widest transition-colors ${
+                pathname === "/feed.xml"
+                  ? "text-accent border-l-accent border-l-2"
+                  : "text-foreground/80 border-l-2 border-transparent hover:border-accent hover:text-accent"
+              }`}
+            >
+              <span className="font-mono text-accent/60 text-xs">&gt;</span>
+              /RSS Feed
+            </Link>
+            <Link
+              href="/contacts"
+              onClick={handleClose}
+              className={`flex items-center gap-3 px-6 py-4 font-sans text-sm uppercase tracking-widest transition-colors ${
+                pathname === "/contacts"
+                  ? "text-accent-tertiary border-l-accent-tertiary border-l-2"
+                  : "text-foreground/80 border-l-2 border-transparent hover:border-accent-tertiary hover:text-accent-tertiary"
+              }`}
+            >
+              <span className="font-mono text-accent/60 text-xs">&gt;</span>
+              Contact.exe
+            </Link>
+          </div>
 
           {/* Corner accent */}
           <div className="absolute bottom-0 right-4 w-8 h-px bg-accent/30" />
