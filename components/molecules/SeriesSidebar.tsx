@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { SeriesPart } from "@/types";
+import { SeriesPartSummary } from "@/types";
 
 interface SeriesSidebarProps {
   seriesSlug: string;
   activePartSlug: string;
-  parts: SeriesPart[];
+  parts: SeriesPartSummary[];
   seriesTitle: string;
 }
 

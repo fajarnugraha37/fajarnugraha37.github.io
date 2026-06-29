@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { SeriesPart } from "@/types";
+import { SeriesPartSummary } from "@/types";
 
 interface SeriesPrevNextNavProps {
   seriesSlug: string;
-  previousPart: SeriesPart | null;
-  nextPart: SeriesPart | null;
+  previousPart: SeriesPartSummary | null;
+  nextPart: SeriesPartSummary | null;
 }
 
 export function SeriesPrevNextNav({

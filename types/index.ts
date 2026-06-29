@@ -38,6 +38,10 @@ export interface SeriesPart extends SeriesPartMetadata {
   stats: ContentStats;
 }
 
+export interface SeriesPartSummary extends SeriesPartMetadata {
+  stats: ContentStats;
+}
+
 export interface SeriesSummary {
   seriesSlug: string;
   seriesTitle: string;
@@ -50,7 +54,7 @@ export interface SeriesSummary {
 
 export interface SeriesDetail {
   summary: SeriesSummary;
-  parts: SeriesPart[];
+  parts: SeriesPartSummary[];
 }
 
 export interface SeriesNavLink {

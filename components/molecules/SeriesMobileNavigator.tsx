@@ -3,12 +3,12 @@
 import { useState } from "react";
 import Link from "next/link";
 import { ChevronDown } from "lucide-react";
-import { SeriesPart } from "@/types";
+import { SeriesPartSummary } from "@/types";
 
 interface SeriesMobileNavigatorProps {
   seriesSlug: string;
   activePartSlug: string;
-  parts: SeriesPart[];
+  parts: SeriesPartSummary[];
 }
 
 export function SeriesMobileNavigator({

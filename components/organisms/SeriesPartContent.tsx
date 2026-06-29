@@ -5,7 +5,7 @@ import { ChevronLeft, LibraryBig } from "lucide-react";
 import { PageTransition } from "@/components/atoms/PageTransition";
 import { TocNav } from "@/components/molecules/TocNav";
 import { ContentAudioPlayer } from "@/components/molecules/ContentAudioPlayer";
-import { AudioManifestEntry, SeriesPart, TocHeading } from "@/types";
+import { AudioManifestEntry, SeriesPart, SeriesPartSummary, TocHeading } from "@/types";
 import { SeriesSidebar } from "@/components/molecules/SeriesSidebar";
 import { SeriesMobileNavigator } from "@/components/molecules/SeriesMobileNavigator";
 import { SeriesPrevNextNav } from "@/components/molecules/SeriesPrevNextNav";
@@ -13,9 +13,9 @@ import { SeriesPrevNextNav } from "@/components/molecules/SeriesPrevNextNav";
 interface SeriesPartContentProps {
   part: SeriesPart;
   headings: TocHeading[];
-  parts: SeriesPart[];
-  previousPart: SeriesPart | null;
-  nextPart: SeriesPart | null;
+  parts: SeriesPartSummary[];
+  previousPart: SeriesPartSummary | null;
+  nextPart: SeriesPartSummary | null;
   audioEntry?: AudioManifestEntry | null;
   children: React.ReactNode;
 }
