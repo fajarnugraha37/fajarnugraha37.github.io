@@ -4,7 +4,7 @@ export const CONTACT_LINKS: ContactLink[] = [
   { 
     name: "GITHUB", 
     url: "https://github.com/fajarnugraha37", 
-    desc: "Open source contributions & dotfiles" 
+    desc: "Proprietary developer" 
   },
   { 
     name: "LINKEDIN", 

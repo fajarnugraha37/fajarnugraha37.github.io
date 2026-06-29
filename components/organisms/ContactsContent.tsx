@@ -34,8 +34,8 @@ export function ContactsContent() {
           </div>
 
           <div className="flex flex-col gap-12 w-full max-w-3xl mx-auto">
-            <TerminalSection links={CONTACT_LINKS} />
             <ContactLinksSection links={CONTACT_LINKS} />
+            <TerminalSection links={CONTACT_LINKS} />
           </div>
         </div>
       </PageTransition>
