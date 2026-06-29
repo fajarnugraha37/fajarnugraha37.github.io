@@ -57,6 +57,58 @@ function escapeAmbiguousComparatorText(segment: string) {
     .replace(/<(?=\s|\d)/g, "&lt;");
 }
 
+function isGenericTypeStart(text: string, index: number) {
+  if (text[index] !== "<" || index <= 0 || index >= text.length - 1) {
+    return false;
+  }
+
+  const previousChar = text[index - 1];
+  const nextChar = text[index + 1];
+
+  return /[A-Za-z0-9_$.?]/.test(previousChar) && /[A-Za-z?_]/.test(nextChar);
+}
+
+function escapeInlineGenericTypeSyntax(segment: string) {
+  let result = "";
+
+  for (let index = 0; index < segment.length; index += 1) {
+    const char = segment[index];
+
+    if (!isGenericTypeStart(segment, index)) {
+      result += char;
+      continue;
+    }
+
+    let depth = 1;
+    result += "&lt;";
+
+    for (index += 1; index < segment.length; index += 1) {
+      const nestedChar = segment[index];
+
+      if (nestedChar === "<" && isGenericTypeStart(segment, index)) {
+        depth += 1;
+        result += "&lt;";
+        continue;
+      }
+
+      if (nestedChar === ">") {
+        depth -= 1;
+        result += "&gt;";
+
+        if (depth === 0) {
+          break;
+        }
+
+        continue;
+      }
+
+      result += nestedChar;
+    }
+  }
+
+  return result;
+}
+
 export function normalizeMdxSource(rawContent: string) {
   const lines = rawContent.split("\n");
   let inCodeFence = false;
@@ -77,7 +129,9 @@ export function normalizeMdxSource(rawContent: string) {
         .map((segment) =>
           segment.startsWith("`") && segment.endsWith("`")
             ? segment
-            : escapeAmbiguousComparatorText(segment)
+            : escapeInlineGenericTypeSyntax(
+                escapeAmbiguousComparatorText(segment)
+              )
         )
         .join("");
     })
