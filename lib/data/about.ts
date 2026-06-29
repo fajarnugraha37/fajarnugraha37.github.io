@@ -4,7 +4,7 @@ import { Experience, Education } from "@/types";
 export const CAREER_DATA: Experience[] = [
   {
     year: "Jun 2025 - March 2026",
-    company: "XTREMAX",
+    company: "Xtremax Pte. Ltd",
     role: "LEAD SOFTWARE DEVELOPER",
     descriptions: [
       "Lead Software Developer for a GovTech Singapore project, responsible for end-to-end delivery, reliability, and technical direction.",
@@ -19,7 +19,7 @@ export const CAREER_DATA: Experience[] = [
   },
   {
     year: "Jul 2023 - May 2025",
-    company: "XTREMAX",
+    company: "Xtremax Pte. Ltd",
     role: "SOFTWARE DEVELOPER - BACKEND",
     descriptions: [
       "Assigned to a GovTech Singapore project (30+ services) utilizing Java Spring Boot, Node.js, and .NET.",
@@ -30,7 +30,7 @@ export const CAREER_DATA: Experience[] = [
   },
   {
     year: "Oct 2022 - Jun 2023",
-    company: "XTREMAX",
+    company: "Xtremax Pte. Ltd",
     role: "SOFTWARE DEVELOPER - BACKEND",
     descriptions: [
       "Served as a Center of Excellence (CoE/RnD) member, supporting Business Analysts (BAs) and Solution Architects (SAs) during tenders.",

@@ -16,7 +16,7 @@ interface EducationSectionProps {
  */
 export function EducationSection({ education }: EducationSectionProps) {
   return (
-    <section id="education">
+    <section id="education" className="scroll-mt-28">
       <ScrollReveal direction="up">
         <div className="flex items-center gap-4 mb-12">
           <div className="p-2 bg-accent-tertiary/10 border border-accent-tertiary/30 text-accent-tertiary">
@@ -28,7 +28,11 @@ export function EducationSection({ education }: EducationSectionProps) {
           <div className="h-px flex-1 bg-accent-tertiary/10" />
         </div>
 
-        <div className="grid grid-cols-1 gap-8">
+        <p className="mb-8 max-w-3xl text-sm leading-relaxed text-muted-foreground md:text-[15px]">
+          Formal education and credentials matter here as supporting context. The main story is still how that foundation translates into delivery, systems thinking, and execution under real constraints.
+        </p>
+
+        <div className="grid grid-cols-1 gap-4 md:gap-5">
           {education.map((edu, i) => (
             <EducationCard key={`${edu.school}-${i}`} edu={edu} />
           ))}

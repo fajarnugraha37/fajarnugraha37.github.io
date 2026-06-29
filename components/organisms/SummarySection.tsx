@@ -10,26 +10,79 @@ import { ExpandableSummary } from "@/components/molecules/ExpandableSummary";
  * Renders the professional summary section with decorative corner accents.
  */
 export function SummarySection() {
+  const snapshotItems = [
+    {
+      label: "Current Focus",
+      value: "Backend, architecture, and production stability",
+    },
+    {
+      label: "Operating Bias",
+      value: "Honest plans, explicit trade-offs, boring production",
+    },
+    {
+      label: "Scope",
+      value: "Cross-functional leadership across services, UI, and stakeholders",
+    },
+    {
+      label: "Best Used For",
+      value: "Unblocking delivery, clarifying direction, and reducing operational noise",
+    },
+  ];
+
+  const scanPoints = [
+    "Lead software delivery where roadmap commitments, production reality, and architecture decisions have to agree with each other.",
+    "Work across solutioning, incident triage, planning, stakeholder alignment, and engineering guardrails instead of staying inside one lane.",
+    "Prefer systems that stay understandable under pressure: clear docs, measurable trade-offs, and delivery plans that survive contact with reality.",
+  ];
+
   return (
-    <section id="summary">
+    <section id="overview" className="scroll-mt-28">
       <ScrollReveal direction="up">
         <div className="flex items-center gap-4 mb-8">
           <div className="p-2 bg-accent/10 border border-accent/30 text-accent">
             <Terminal className="w-5 h-5" />
           </div>
           <h2 className="text-xs font-bold font-mono text-accent tracking-[0.4em] uppercase">
-            SUMMARY.LOG
+            OVERVIEW.LOG
           </h2>
           <div className="h-px flex-1 bg-accent/10" />
         </div>
-        
-        <div className="relative group">
-          {/* Decorative Corner Accents */}
-          <div className="absolute -top-2 -left-2 w-4 h-4 border-t-2 border-l-2 border-accent/40 pointer-events-none group-hover:border-accent transition-colors" />
-          <div className="absolute -bottom-2 -right-2 w-4 h-4 border-b-2 border-r-2 border-accent/40 pointer-events-none group-hover:border-accent transition-colors" />
-          
+
+        {/* <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4 mb-8">
+          {snapshotItems.map((item) => (
+            <div
+              key={item.label}
+              className="border border-border/50 bg-card/20 p-4 backdrop-blur-sm"
+            >
+              <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-accent">
+                {item.label}
+              </p>
+              <p className="mt-2 text-sm leading-relaxed text-foreground/88">
+                {item.value}
+              </p>
+            </div>
+          ))}
+        </div> */}
+
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+          <div className="border border-border/50 bg-background/50 p-5">
+            <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-accent mb-3">
+              In Short
+            </p>
+            <div className="space-y-3">
+              {scanPoints.map((point) => (
+                <div key={point} className="flex gap-3">
+                  <span className="mt-1 text-accent">&gt;</span>
+                  <p className="text-sm leading-relaxed text-foreground/85">
+                    {point}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <ExpandableSummary>
-            <div className="font-mono text-sm md:text-base leading-relaxed space-y-6 text-foreground/90 py-2">
+            <div className="space-y-5 py-1 font-mono text-sm leading-relaxed text-foreground/88 md:text-[15px]">
               <p>
                 Lead Software Engineer working on a GovTech microservices platform (Singapore). I keep production alive, delivery predictable, and plans honest. Heavily involved in ensuring plans match reality (capacity vs commitment), not just optimism.
               </p>

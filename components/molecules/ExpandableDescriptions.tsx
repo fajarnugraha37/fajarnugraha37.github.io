@@ -15,9 +15,16 @@ export function ExpandableDescriptions({ descriptions }: Props) {
   const [expanded, setExpanded] = useState(false);
 
   if (descriptions.length === 0) return null;
+  if (descriptions.length === 1) {
+    return (
+      <p className="font-mono text-sm leading-relaxed text-foreground/78">
+        {descriptions[0]}
+      </p>
+    );
+  }
 
   return (
-    <div className="mb-4">
+    <div>
       <div className="relative">
         <AnimatePresence mode="wait">
           {!expanded ? (
@@ -26,7 +33,7 @@ export function ExpandableDescriptions({ descriptions }: Props) {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="font-mono text-sm leading-relaxed text-foreground/80 line-clamp-1"
+              className="line-clamp-2 font-mono text-sm leading-relaxed text-foreground/78"
             >
               {descriptions[0]}
             </motion.p>
@@ -43,7 +50,7 @@ export function ExpandableDescriptions({ descriptions }: Props) {
                 {descriptions.map((desc, i) => (
                   <p
                     key={i}
-                    className="font-mono text-sm leading-relaxed mb-3 text-foreground/80 flex gap-2"
+                    className="mb-3 flex gap-2 font-mono text-sm leading-relaxed text-foreground/78"
                   >
                     <span className="text-accent shrink-0 mt-0.5">&gt;</span>
                     <span>{desc}</span>
@@ -60,7 +67,7 @@ export function ExpandableDescriptions({ descriptions }: Props) {
         type="button"
         id={`expand-desc-${descriptions[0].slice(0, 20).replace(/\s+/g, "-")}`}
         onClick={() => setExpanded((v) => !v)}
-        className="mt-2 flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground hover:text-accent transition-colors"
+        className="mt-3 flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground transition-colors hover:text-accent"
         aria-expanded={expanded ? "true" : "false"}
       >
         <span
@@ -71,8 +78,8 @@ export function ExpandableDescriptions({ descriptions }: Props) {
           ▼
         </span>
         {expanded
-          ? `COLLAPSE [${descriptions.length} ENTRIES]`
-          : `EXPAND [${descriptions.length} ENTRIES]`}
+          ? `Collapse ${descriptions.length} Details`
+          : `Open ${descriptions.length} Details`}
       </button>
     </div>
   );
