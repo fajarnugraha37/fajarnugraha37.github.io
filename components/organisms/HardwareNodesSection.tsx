@@ -2,230 +2,112 @@
 
 import React from "react";
 import Link from "next/link";
-import { ChevronRight, Database, BarChart3, Share2, FileText, Film } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { ScrollReveal } from "@/components/atoms/ScrollReveal";
+import { LabNodeCard } from "@/components/molecules/LabNodeCard";
+import { getFeaturedLabs, getHomepageLabs } from "@/lib/data/labs";
+
+const featuredLabs = getFeaturedLabs();
+const secondaryLabs = getHomepageLabs().filter(
+  (lab) => !featuredLabs.some((featuredLab) => featuredLab.id === lab.id),
+);
 
 export function HardwareNodesSection() {
   return (
-    <section className="py-14 md:py-20 border-t border-border relative overflow-hidden">
-      {/* <div className="absolute inset-0 bg-gradient-to-b from-background via-accent/5 to-background -z-10 pointer-events-none opacity-25" /> */}
-
+    <section className="relative overflow-hidden border-t border-border py-14 md:py-20">
       <ScrollReveal direction="up">
-        <div className="flex items-center justify-between mb-5 md:mb-8 px-4">
-          <h2 className="text-3xl md:text-4xl font-bold font-sans text-foreground flex items-center gap-4 text-center mx-auto md:mx-0">
-            <span className="text-accent drop-shadow-[0_0_5px_#ff7300]">
-              03 //
-            </span>{" "}
+        <div className="mb-5 flex items-center justify-between px-4 md:mb-8">
+          <h2 className="mx-auto flex items-center gap-4 text-center font-sans text-3xl font-bold text-foreground md:mx-0 md:text-4xl">
+            <span className="text-accent drop-shadow-[0_0_5px_#ff7300]">03 //</span>
             INTERACTIVE LABS
           </h2>
           <Link
             href="/labs"
-            className="hidden md:flex items-center gap-2 text-xs font-mono text-muted-foreground hover:text-accent transition-colors"
+            className="hidden items-center gap-2 text-xs font-mono text-muted-foreground transition-colors hover:text-accent md:flex"
           >
-            [VIEW_ALL_MODULES] <ChevronRight className="w-4 h-4" />
+            [VIEW_ALL_MODULES] <ChevronRight className="h-4 w-4" />
           </Link>
         </div>
       </ScrollReveal>
 
       <ScrollReveal delay={0.05} direction="up">
-        <div className="max-w-3xl px-4 mb-8 md:mb-10">
+        <div className="mb-8 max-w-3xl px-4 md:mb-10">
           <p className="text-sm leading-relaxed text-muted-foreground md:text-base">
-            Explore hands-on browser labs after you want to test ideas, inspect systems,
-            or experiment directly instead of only reading.
+            Open a sandbox when you want proof, not just prose. Start with the clearest entry
+            points below, then branch into heavier or more specialized modules.
           </p>
         </div>
       </ScrollReveal>
 
-      {/* Primary Nodes Grid */}
-      <div className="max-w-6xl mx-auto px-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          <ScrollReveal delay={0.1} direction="up">
-            <Link
-              href="/labs/postgresql"
-              className="group flex flex-col p-6 border border-border bg-card/80 backdrop-blur-sm cyber-chamfer hover:border-accent hover:shadow-[0_0_20px_rgba(255,115,0,0.15)] transition-all relative overflow-hidden h-full"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="p-3 bg-muted/30 border border-border group-hover:border-accent/40 text-accent transition-colors">
-                  <Database className="w-8 h-8" />
-                </div>
-                <div className="flex flex-col items-end font-mono text-[10px] uppercase">
-                  <span className="text-muted-foreground">NODE_STATUS</span>
-                  <span className="text-accent animate-pulse">[ONLINE]</span>
-                </div>
-              </div>
-              <h3 className="text-2xl font-black mb-2 text-foreground group-hover:text-accent transition-colors uppercase">
-                SQL LAB.EXE
-              </h3>
-              <p className="text-sm font-mono text-muted-foreground mb-6">
-                Persistent PostgreSQL WASM Node. Fully ACID compliant relational
-                database running directly in your browser.
+      <div className="mx-auto max-w-6xl px-4">
+        <ScrollReveal delay={0.08} direction="up">
+          <div className="mb-6 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+            <div>
+              <span className="text-[10px] font-mono uppercase tracking-[0.22em] text-accent">
+                Start Here
+              </span>
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+                Best first modules for structured querying, analytical exploration, and low-friction
+                writing loops.
               </p>
-              <div className="mt-auto flex items-center gap-2 text-xs font-mono font-bold uppercase tracking-widest text-accent opacity-80 group-hover:opacity-100 transition-opacity">
-                <span>CONNECT_NODE</span>
-                <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </div>
+            </div>
+            <Link
+              href="/labs#labs-by-goal"
+              className="inline-flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.18em] text-muted-foreground transition-colors hover:text-accent"
+            >
+              Browse By Goal
+              <ChevronRight className="h-3.5 w-3.5" />
             </Link>
-          </ScrollReveal>
+          </div>
+        </ScrollReveal>
 
-          <ScrollReveal delay={0.2} direction="up">
-            <Link
-              href="/labs/duckdb"
-              className="group flex flex-col p-6 border border-border bg-card/80 backdrop-blur-sm cyber-chamfer hover:border-accent-secondary hover:shadow-[0_0_20px_rgba(255,0,127,0.15)] transition-all relative overflow-hidden h-full"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="p-3 bg-muted/30 border border-border group-hover:border-accent-secondary/40 text-accent-secondary transition-colors">
-                  <BarChart3 className="w-8 h-8" />
-                </div>
-                <div className="flex flex-col items-end font-mono text-[10px] uppercase">
-                  <span className="text-muted-foreground">NODE_STATUS</span>
-                  <span className="text-accent-secondary animate-pulse">
-                    [STREAMING]
-                  </span>
-                </div>
-              </div>
-              <h3 className="text-2xl font-black mb-2 text-foreground group-hover:text-accent-secondary transition-colors uppercase">
-                OLAP LAB.EXE
-              </h3>
-              <p className="text-sm font-mono text-muted-foreground mb-6">
-                OLAP engine powered by DuckDB-WASM. Drop massive CSV/Parquet
-                files and query them with zero latency.
-              </p>
-              <div className="mt-auto flex items-center gap-2 text-xs font-mono font-bold uppercase tracking-widest text-accent-secondary opacity-80 group-hover:opacity-100 transition-opacity">
-                <span>CONNECT_NODE</span>
-                <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </div>
-            </Link>
-          </ScrollReveal>
-
-          <ScrollReveal delay={0.3} direction="up">
-            <Link
-              href="/labs/knowledge-graph"
-              className="group flex flex-col p-6 border border-border bg-card/80 backdrop-blur-sm cyber-chamfer hover:border-accent-tertiary hover:shadow-[0_0_20px_rgba(0,212,255,0.15)] transition-all relative overflow-hidden h-full"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="p-3 bg-muted/30 border border-border group-hover:border-accent-tertiary/40 text-accent-tertiary transition-colors">
-                  <Share2 className="w-8 h-8" />
-                </div>
-                <div className="flex flex-col items-end font-mono text-[10px] uppercase">
-                  <span className="text-muted-foreground">NODE_STATUS</span>
-                  <span className="text-accent-tertiary animate-pulse">
-                    [MAPPING]
-                  </span>
-                </div>
-              </div>
-              <h3 className="text-2xl font-black mb-2 text-foreground group-hover:text-accent-tertiary transition-colors uppercase">
-                BLOG NETWORKS.EXE
-              </h3>
-              <p className="text-sm font-mono text-muted-foreground mb-6">
-                Interactive 3D visualization of semantic relationships within
-                the blog archive using three.js
-              </p>
-              <div className="mt-auto flex items-center gap-2 text-xs font-mono font-bold uppercase tracking-widest text-accent-tertiary opacity-80 group-hover:opacity-100 transition-opacity">
-                <span>CONNECT_NODE</span>
-                <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </div>
-            </Link>
-          </ScrollReveal>
-
-          <ScrollReveal delay={0.4} direction="up">
-            <Link
-              href="/labs/markdown"
-              className="group flex flex-col p-6 border border-border bg-card/80 backdrop-blur-sm cyber-chamfer hover:border-accent hover:shadow-[0_0_20px_rgba(0,255,136,0.15)] transition-all relative overflow-hidden h-full"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="p-3 bg-muted/30 border border-border group-hover:border-accent/40 text-accent transition-colors">
-                  <FileText className="w-8 h-8" />
-                </div>
-                <div className="flex flex-col items-end font-mono text-[10px] uppercase">
-                  <span className="text-muted-foreground">NODE_STATUS</span>
-                  <span className="text-accent animate-pulse">[READY]</span>
-                </div>
-              </div>
-              <h3 className="text-2xl font-black mb-2 text-foreground group-hover:text-accent transition-colors uppercase">
-                MARKDOWN PLAYGROUND.EXE
-              </h3>
-              <p className="text-sm font-mono text-muted-foreground mb-6">
-                Advanced technical editor with real-time preview, VIM mode, and PDF exports.
-              </p>
-              <div className="mt-auto flex items-center gap-2 text-xs font-mono font-bold uppercase tracking-widest text-accent opacity-80 group-hover:opacity-100 transition-opacity">
-                <span>CONNECT_NODE</span>
-                <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </div>
-            </Link>
-          </ScrollReveal>
-
-          <ScrollReveal delay={0.5} direction="up">
-            <Link
-              href="/labs/ffmpeg"
-              className="group flex flex-col p-6 border border-border bg-card/80 backdrop-blur-sm cyber-chamfer hover:border-accent-secondary hover:shadow-[0_0_20px_rgba(255,0,127,0.15)] transition-all relative overflow-hidden h-full"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="p-3 bg-muted/30 border border-border group-hover:border-accent-secondary/40 text-accent-secondary transition-colors">
-                  <Film className="w-8 h-8" />
-                </div>
-                <div className="flex flex-col items-end font-mono text-[10px] uppercase">
-                  <span className="text-muted-foreground">NODE_STATUS</span>
-                  <span className="text-accent-secondary animate-pulse">[STANDBY]</span>
-                </div>
-              </div>
-              <h3 className="text-2xl font-black mb-2 text-foreground group-hover:text-accent-secondary transition-colors uppercase">
-                MEDIA PROCESSOR.EXE
-              </h3>
-              <p className="text-sm font-mono text-muted-foreground mb-6">
-                Client-side video/audio transcoding. In-browser signal processing powered by FFmpeg WASM.
-              </p>
-              <div className="mt-auto flex items-center gap-2 text-xs font-mono font-bold uppercase tracking-widest text-accent-secondary opacity-80 group-hover:opacity-100 transition-opacity">
-                <span>CONNECT_NODE</span>
-                <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </div>
-            </Link>
-          </ScrollReveal>
-
-          <ScrollReveal delay={0.6} direction="up">
-            <Link
-              href="/labs/translate"
-              className="group flex flex-col p-6 border border-border bg-card/80 backdrop-blur-sm cyber-chamfer hover:border-accent-tertiary hover:shadow-[0_0_20px_rgba(0,212,255,0.15)] transition-all relative overflow-hidden h-full"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="p-3 bg-muted/30 border border-border group-hover:border-accent-tertiary/40 text-accent-tertiary transition-colors">
-                  <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="m5 8 6 6" />
-                    <path d="m4 14 6-6 2-3" />
-                    <path d="M2 5h12" />
-                    <path d="M7 2h1" />
-                    <path d="m22 22-5-10-5 10" />
-                    <path d="M14 18h6" />
-                  </svg>
-                </div>
-                <div className="flex flex-col items-end font-mono text-[10px] uppercase">
-                  <span className="text-muted-foreground">NODE_STATUS</span>
-                  <span className="text-accent-tertiary animate-pulse">[INFERENCE]</span>
-                </div>
-              </div>
-              <h3 className="text-2xl font-black mb-2 text-foreground group-hover:text-accent-tertiary transition-colors uppercase">
-                TRANSLATION PLAYGROUND.EXE
-              </h3>
-              <p className="text-sm font-mono text-muted-foreground mb-6">
-                Client-side NLLB-200 machine translation. Zero-server inference running securely in the browser.
-              </p>
-              <div className="mt-auto flex items-center gap-2 text-xs font-mono font-bold uppercase tracking-widest text-accent-tertiary opacity-80 group-hover:opacity-100 transition-opacity">
-                <span>CONNECT_NODE</span>
-                <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </div>
-            </Link>
-          </ScrollReveal>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          {featuredLabs.map((lab, index) => (
+            <ScrollReveal key={lab.id} delay={0.1 + index * 0.08} direction="up">
+              <LabNodeCard node={lab} />
+            </ScrollReveal>
+          ))}
         </div>
+
+        <ScrollReveal delay={0.35} direction="up">
+          <div className="mt-8 border-t border-border/70 pt-6">
+            <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+              <div>
+                <span className="text-[10px] font-mono uppercase tracking-[0.22em] text-accent">
+                  More Playgrounds
+                </span>
+                <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+                  Specialized labs for blog discovery, media conversion, and offline translation.
+                </p>
+              </div>
+              <Link
+                href="/labs#labs-by-goal"
+                className="inline-flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.18em] text-muted-foreground transition-colors hover:text-accent"
+              >
+                Browse By Goal
+                <ChevronRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              {secondaryLabs.map((lab, index) => (
+                <ScrollReveal key={lab.id} delay={0.4 + index * 0.08} direction="up">
+                  <LabNodeCard node={lab} variant="compact" />
+                </ScrollReveal>
+              ))}
+            </div>
+          </div>
+        </ScrollReveal>
       </div>
 
-      <div className="mt-12 md:hidden flex justify-center">
+      <div className="mt-12 flex justify-center md:hidden">
         <Link
           href="/labs"
-          className="flex items-center gap-2 text-xs font-mono text-accent hover:text-white transition-colors"
+          className="flex items-center gap-2 text-xs font-mono text-accent transition-colors hover:text-white"
         >
-          [VIEW_ALL_MODULES] <ChevronRight className="w-4 h-4" />
+          [VIEW_ALL_MODULES] <ChevronRight className="h-4 w-4" />
         </Link>
       </div>
     </section>
   );
 }
-
