@@ -108,8 +108,28 @@ function extractOrder(fileSlug: string, frontmatterOrder?: number | string) {
 }
 
 function inferPublicSeriesSlug(directorySlug: string, fileSlug: string) {
-  const prefix = fileSlug.split("-part-")[0]?.trim();
+  const prefix = fileSlug.split("-part-")[0]?.trim().replace(/[-_]+$/, "");
   return prefix || directorySlug;
+}
+
+function resolvePublicSeriesSlug(
+  directorySlug: string,
+  fileSlug: string,
+  frontmatterSeries?: string,
+) {
+  const inferredSeriesSlug = inferPublicSeriesSlug(directorySlug, fileSlug);
+  const manifest = getSeriesManifest();
+  const manifestSlugs = new Set(manifest.series.map((entry) => entry.slug));
+
+  if (manifestSlugs.has(inferredSeriesSlug)) {
+    return inferredSeriesSlug;
+  }
+
+  if (frontmatterSeries && manifestSlugs.has(frontmatterSeries)) {
+    return frontmatterSeries;
+  }
+
+  return frontmatterSeries || inferredSeriesSlug;
 }
 
 function inferSeriesTitle(seriesSlug: string, parts: string[]) {
@@ -179,7 +199,7 @@ function readSeriesPartSummary(seriesSlug: string, fileName: string): SeriesPart
   const frontmatter = data as SeriesFrontmatter;
   const slug = fileName.replace(/\.mdx$/, "");
   const order = extractOrder(slug, frontmatter.order);
-  const inferredSeriesSlug = inferPublicSeriesSlug(seriesSlug, slug);
+  const publicSeriesSlug = resolvePublicSeriesSlug(seriesSlug, slug, frontmatter.series);
 
   return {
     slug,
@@ -190,7 +210,7 @@ function readSeriesPartSummary(seriesSlug: string, fileName: string): SeriesPart
     stats: calculateContentStats(content),
     order,
     partTitle: frontmatter.partTitle,
-    seriesSlug: frontmatter.series || inferredSeriesSlug,
+    seriesSlug: publicSeriesSlug,
     seriesTitle: frontmatter.seriesTitle || "",
   };
 }
@@ -202,7 +222,7 @@ function readSeriesPart(seriesSlug: string, fileName: string): SeriesPart {
   const frontmatter = data as SeriesFrontmatter;
   const slug = fileName.replace(/\.mdx$/, "");
   const order = extractOrder(slug, frontmatter.order);
-  const inferredSeriesSlug = inferPublicSeriesSlug(seriesSlug, slug);
+  const publicSeriesSlug = resolvePublicSeriesSlug(seriesSlug, slug, frontmatter.series);
 
   return {
     slug,
@@ -213,7 +233,7 @@ function readSeriesPart(seriesSlug: string, fileName: string): SeriesPart {
     stats: calculateContentStats(content),
     order,
     partTitle: frontmatter.partTitle,
-    seriesSlug: frontmatter.series || inferredSeriesSlug,
+    seriesSlug: publicSeriesSlug,
     seriesTitle: frontmatter.seriesTitle || "",
     content,
   };
