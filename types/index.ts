@@ -13,6 +13,7 @@ export interface BlogMetadata {
   date: string;
   tags: string[];
   description: string;
+  stats?: ContentStats;
 }
 
 export interface ContentStats {

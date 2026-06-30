@@ -15,7 +15,7 @@ export function FeaturedSeriesRow({
   description,
 }: FeaturedSeriesRowProps) {
   return (
-    <div className="space-y-4 border border-accent-secondary/20 bg-accent-secondary/5 p-4 md:p-5 cyber-chamfer">
+    <div className="space-y-4 border border-accent-secondary/20 bg-accent-secondary/5 p-4 md:p-5">
       <div className="space-y-2">
         <div className="flex items-center gap-3">
           <span className="text-[10px] font-mono uppercase tracking-[0.25em] text-accent-secondary">

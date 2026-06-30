@@ -12,20 +12,22 @@ export function getSortedBlogsData(): BlogMetadata[] {
   const fileNames = fs.readdirSync(blogsDirectory);
   const allBlogsData = fileNames
     .filter((fileName) => fileName.endsWith(".mdx"))
-    .map((fileName) => {
-      const slug = fileName.replace(/\.mdx$/, "");
-      const fullPath = path.join(blogsDirectory, fileName);
-      const fileContents = fs.readFileSync(fullPath, "utf8");
-      const { data } = parseContentFrontmatter(fileContents);
+      .map((fileName) => {
+        const slug = fileName.replace(/\.mdx$/, "");
+        const fullPath = path.join(blogsDirectory, fileName);
+        const fileContents = fs.readFileSync(fullPath, "utf8");
+        const { data, content } = parseContentFrontmatter(fileContents);
+        const stats = calculateContentStats(content);
 
-      return {
-        slug,
-        title: data.title,
-        date: data.date,
-        tags: data.tags || [],
-        description: data.description || "",
-      };
-    });
+        return {
+          slug,
+          title: data.title,
+          date: data.date,
+          tags: data.tags || [],
+          description: data.description || "",
+          stats,
+        };
+      });
 
   return allBlogsData.sort((a, b) => (a.date < b.date ? 1 : -1));
 }

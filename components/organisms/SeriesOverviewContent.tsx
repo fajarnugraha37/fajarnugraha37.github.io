@@ -83,7 +83,7 @@ export function SeriesOverviewContent({ series }: SeriesOverviewContentProps) {
 
         <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_280px]">
           <div className="space-y-8">
-            <div className="border border-border bg-card/20 p-5 md:p-6 cyber-chamfer">
+            <div className="border border-border bg-card/20 p-5 md:p-6">
               <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono uppercase tracking-[0.15em] mb-4">
                 <span className="border border-accent/20 bg-accent/5 px-3 py-1 text-accent">
                   {series.summary.totalParts.toString().padStart(2, "0")} Lessons
@@ -168,7 +168,7 @@ export function SeriesOverviewContent({ series }: SeriesOverviewContentProps) {
                 <section
                   key={phase.id}
                   id={`phase-${phase.id}`}
-                  className="scroll-mt-28 border border-border bg-card/20 cyber-chamfer"
+                  className="scroll-mt-28 border border-border bg-card/20"
                 >
                   <button
                     type="button"
@@ -282,7 +282,7 @@ export function SeriesOverviewContent({ series }: SeriesOverviewContentProps) {
                 ) : null}
               </div>
 
-              <div className="col-span-2 border border-border/50 bg-card/20 p-4 cyber-chamfer-sm">
+              <div className="col-span-2 border border-border/50 bg-card/20 p-4">
                 <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-accent-secondary">
                   Progress Memory
                 </span>
@@ -314,7 +314,7 @@ export function SeriesOverviewContent({ series }: SeriesOverviewContentProps) {
             </div>
 
             <div className="space-y-4">
-              <div className="border border-border bg-card/20 p-4 cyber-chamfer-sm">
+              <div className="border border-border bg-card/20 p-4">
                 <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-accent">
                   Jump Across Track
                 </span>

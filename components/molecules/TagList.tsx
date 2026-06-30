@@ -26,47 +26,65 @@ export function TagList({
   const shouldExpand = isMobile ? isExpanded : true;
 
   return (
-    <div className="bg-card border border-border cyber-chamfer relative overflow-hidden">
+    <div className="bg-card border border-border relative overflow-hidden">
       <div className="absolute top-0 right-0 p-2 opacity-5 pointer-events-none">
         <Tag className="w-8 h-8" />
       </div>
 
       <div className="flex flex-col">
-        <button
-          type="button"
-          onClick={toggleExpanded}
-          className={`flex justify-between items-center px-4 py-4 md:pt-4 md:pb-2 md:mb-2 md:border-b md:border-border w-full text-left ${
-            isMobile ? "cursor-pointer" : "cursor-default"
-          } group/header`}
-        >
-          <h3 className="text-sm font-sans font-bold text-foreground uppercase tracking-widest flex items-center gap-2 group-hover/header:text-accent md:group-hover/header:text-foreground transition-colors">
-            / TAGS
-            {selectedTags.length > 0 && (
-              <span className="text-[10px] font-mono text-accent">
-                ({selectedTags.length})
-              </span>
-            )}
-          </h3>
+        <div className="flex items-center justify-between px-4 py-4 md:mb-2 md:border-b md:border-border md:pt-4 md:pb-2">
+          {isMobile ? (
+            <button
+              type="button"
+              onClick={toggleExpanded}
+              className="group/header flex min-w-0 flex-1 items-center gap-2 text-left"
+            >
+              <h3 className="flex items-center gap-2 text-sm font-sans font-bold uppercase tracking-widest text-foreground transition-colors group-hover/header:text-accent">
+                / TAGS
+                {selectedTags.length > 0 && (
+                  <span className="text-[10px] font-mono text-accent">
+                    ({selectedTags.length})
+                  </span>
+                )}
+              </h3>
+            </button>
+          ) : (
+            <h3 className="flex items-center gap-2 text-sm font-sans font-bold uppercase tracking-widest text-foreground">
+              / TAGS
+              {selectedTags.length > 0 && (
+                <span className="text-[10px] font-mono text-accent">
+                  ({selectedTags.length})
+                </span>
+              )}
+            </h3>
+          )}
 
           <div className="flex items-center gap-3">
             {selectedTags.length > 0 && (
-              <div
-                onClick={(e) => {
-                  e.stopPropagation();
-                  clearTags();
-                }}
-                className="text-[10px] font-mono text-destructive hover:text-white transition-colors flex items-center gap-1 border border-destructive/30 px-2 py-0.5 cyber-chamfer-sm bg-destructive/5"
+              <button
+                type="button"
+                onClick={clearTags}
+                className="flex items-center gap-1 border border-destructive/30 px-2 py-0.5 text-[10px] font-mono text-destructive transition-colors hover:text-white bg-destructive/5"
               >
                 CLEAR
-              </div>
+              </button>
             )}
-            <ChevronDown
-              className={`w-4 h-4 text-accent transition-transform md:hidden ${
-                shouldExpand ? "rotate-180" : ""
-              }`}
-            />
+            {isMobile ? (
+              <button
+                type="button"
+                onClick={toggleExpanded}
+                aria-label={shouldExpand ? "Collapse tags" : "Expand tags"}
+                className="text-accent"
+              >
+                <ChevronDown
+                  className={`w-4 h-4 transition-transform ${
+                    shouldExpand ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+            ) : null}
           </div>
-        </button>
+        </div>
 
         <AnimatePresence initial={false}>
           {shouldExpand && (
@@ -86,7 +104,7 @@ export function TagList({
                       type="button"
                       key={tag}
                       onClick={() => toggleTag(tag)}
-                      className={`text-xs font-mono uppercase px-2 py-1 cyber-chamfer-sm transition-all border ${
+                      className={`text-xs font-mono uppercase px-2 py-1 transition-all border ${
                         isSelected
                           ? "bg-accent text-black border-accent shadow-[0_0_10px_rgba(0,255,136,0.4)]"
                           : "bg-transparent border-border text-muted-foreground hover:border-accent hover:text-accent"

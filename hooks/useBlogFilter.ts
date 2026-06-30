@@ -22,7 +22,8 @@ export function useBlogFilter({
     return blogs.filter((blog) => {
       const matchesSearch =
         blog.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        blog.description.toLowerCase().includes(searchQuery.toLowerCase());
+        blog.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        blog.tags.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase()));
       
       const matchesTags =
         selectedTags.length > 0

@@ -170,7 +170,7 @@ export function SeriesListSection({ catalog }: SeriesListSectionProps) {
           </p>
 
           <div className="space-y-4">
-            <div className="border border-border bg-card/20 p-4 md:p-5 cyber-chamfer">
+            <div className="border border-border bg-card/20 p-4 md:p-5">
               <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
                 <label className="block">
                   <span className="mb-2 flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.25em] text-accent">
@@ -205,7 +205,7 @@ export function SeriesListSection({ catalog }: SeriesListSectionProps) {
                   <select
                     value={sortBy}
                     onChange={(event) => setSortBy(event.target.value as typeof sortBy)}
-                    className="w-full border border-border bg-card/40 px-4 py-3 text-sm text-foreground outline-none transition-colors focus:border-accent"
+                    className="w-full border border-border bg-card px-4 py-3 text-sm text-foreground outline-none transition-colors focus:border-accent"
                   >
                     <option value="recommended">Recommended</option>
                     <option value="shortest">Shortest First</option>
@@ -226,7 +226,7 @@ export function SeriesListSection({ catalog }: SeriesListSectionProps) {
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-3 border border-border/50 bg-card/10 px-4 py-3 cyber-chamfer-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3 border border-border/50 bg-card/10 px-4 py-3">
               <div className="min-w-0">
                 <span className="block text-[10px] font-mono uppercase tracking-[0.2em] text-accent">
                   Active View
@@ -352,7 +352,7 @@ export function SeriesListSection({ catalog }: SeriesListSectionProps) {
 
             <aside className="hidden xl:block">
               <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto pr-2 space-y-4">
-                <div className="border border-border bg-card/20 p-4 cyber-chamfer-sm">
+                <div className="border border-border bg-card/20 p-4">
                   <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-accent">
                     Catalog Jump
                   </span>
