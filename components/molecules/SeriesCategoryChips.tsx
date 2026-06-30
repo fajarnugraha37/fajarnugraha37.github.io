@@ -79,12 +79,12 @@ export function SeriesCategoryChips({
           </button>
         </div>
 
-        <div className="hidden min-w-max gap-2 overflow-x-auto pb-1 md:flex">
+        <div className="hidden flex-wrap gap-2 pb-1 md:flex">
           <button
             type="button"
             onClick={() => onSectionChange("all")}
             className={cn(
-              "shrink-0 border px-3 py-2 text-[10px] font-mono uppercase tracking-[0.2em] transition-colors",
+              "shrink-0 whitespace-nowrap border px-3 py-2 text-[10px] font-mono uppercase tracking-[0.2em] transition-colors",
               activeSectionId === "all"
                 ? "border-accent/30 bg-accent/5 text-accent"
                 : "border-border bg-card/40 text-muted-foreground hover:border-accent hover:text-accent",
@@ -99,7 +99,7 @@ export function SeriesCategoryChips({
               type="button"
               onClick={() => onSectionChange(section.id)}
               className={cn(
-                "shrink-0 border px-3 py-2 text-[10px] font-mono uppercase tracking-[0.2em] transition-colors",
+                "shrink-0 whitespace-nowrap border px-3 py-2 text-[10px] font-mono uppercase tracking-[0.2em] transition-colors",
                 activeSectionId === section.id
                   ? "border-accent/30 bg-accent/5 text-accent"
                   : "border-border bg-card/40 text-muted-foreground hover:border-accent hover:text-accent",
