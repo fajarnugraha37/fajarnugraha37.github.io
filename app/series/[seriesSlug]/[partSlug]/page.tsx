@@ -9,7 +9,12 @@ import rehypeSlug from "rehype-slug";
 import rehypeRaw from "rehype-raw";
 import { mdxComponents } from "@/components/molecules/MDXComponents";
 import { SeriesPartContent } from "@/components/organisms/SeriesPartContent";
-import { getAllSeriesPartParams, getSeriesBySlug, getSeriesPart } from "@/lib/series";
+import {
+  getAllSeriesPartParams,
+  getSeriesBySlug,
+  getSeriesPart,
+  getSeriesPartSummaryBySlug,
+} from "@/lib/series";
 import { getHeadings, normalizeMdxSource } from "@/lib/mdx";
 import { getSeriesPartAudioEntry } from "@/lib/audio/read";
 
@@ -23,7 +28,7 @@ export async function generateMetadata({
   params: Promise<{ seriesSlug: string; partSlug: string }>;
 }): Promise<Metadata> {
   const { seriesSlug, partSlug } = await params;
-  const part = getSeriesPart(seriesSlug, partSlug);
+  const part = getSeriesPartSummaryBySlug(seriesSlug, partSlug);
 
   if (!part) {
     return {

@@ -5,25 +5,46 @@ import { ENV } from "@/lib/env";
 
 export const dynamic = "force-static";
 
+function parseStableDate(value: string | undefined) {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return undefined;
+  }
+
+  return new Date(`${value}T00:00:00.000Z`);
+}
+
+function getLatestStableDate(values: Array<string | undefined>) {
+  const sorted = values
+    .filter((value): value is string => Boolean(value) && /^\d{4}-\d{2}-\d{2}$/.test(value))
+    .sort((left, right) => right.localeCompare(left));
+
+  return parseStableDate(sorted[0]);
+}
+
 export default function sitemap(): MetadataRoute.Sitemap {
   const blogs = getSortedBlogsData();
   const series = getAllSeries();
   const seriesParts = getAllSeriesPartEntries();
   const baseUrl = ENV.BASE_URL;
+  const siteLastModified = getLatestStableDate([
+    ...blogs.map((blog) => blog.date),
+    ...series.map((entry) => entry.lastUpdated),
+    ...seriesParts.map((part) => part.date),
+  ]);
 
   const blogUrls = blogs.map((blog) => ({
     url: `${baseUrl}/blogs/${blog.slug}`,
-    lastModified: new Date(blog.date),
+    lastModified: parseStableDate(blog.date),
   }));
 
   const seriesOverviewUrls = series.map((entry) => ({
     url: `${baseUrl}/series/${entry.seriesSlug}`,
-    lastModified: new Date(),
+    lastModified: parseStableDate(entry.lastUpdated) || siteLastModified,
   }));
 
   const seriesPartUrls = seriesParts.map((part) => ({
     url: `${baseUrl}/series/${part.seriesSlug}/${part.partSlug}`,
-    lastModified: part.date ? new Date(part.date) : new Date(),
+    lastModified: parseStableDate(part.date) || siteLastModified,
   }));
 
   const labPaths = [
@@ -36,29 +57,29 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   const labUrls = labPaths.map((path) => ({
     url: `${baseUrl}${path}`,
-    lastModified: new Date(),
+    lastModified: siteLastModified,
   }));
 
   return [
     {
       url: baseUrl,
-      lastModified: new Date(),
+      lastModified: siteLastModified,
     },
     {
       url: `${baseUrl}/about`,
-      lastModified: new Date(),
+      lastModified: siteLastModified,
     },
     {
       url: `${baseUrl}/contacts`,
-      lastModified: new Date(),
+      lastModified: siteLastModified,
     },
     {
       url: `${baseUrl}/blogs`,
-      lastModified: new Date(),
+      lastModified: siteLastModified,
     },
     {
       url: `${baseUrl}/series`,
-      lastModified: new Date(),
+      lastModified: siteLastModified,
     },
     ...labUrls,
     ...blogUrls,

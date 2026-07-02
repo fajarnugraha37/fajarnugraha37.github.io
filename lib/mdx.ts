@@ -87,6 +87,16 @@ export function getBlogsBySlugs(slugs: string[]) {
     .filter((blog): blog is BlogMetadata => Boolean(blog));
 }
 
+export function getBlogMetadataBySlug(slug: string): BlogMetadata | null {
+  const cachedIndex = loadBlogIndex();
+  if (cachedIndex) {
+    const entry = cachedIndex.items.find((item) => item.slug === slug);
+    return entry ? stripBlogIndexEntry(entry) : null;
+  }
+
+  return getSortedBlogsData().find((blog) => blog.slug === slug) || null;
+}
+
 export function calculateContentStats(rawContent: string): ContentStats {
   const cleanText = rawContent
     .replace(/```[\s\S]*?```/g, "")

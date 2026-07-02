@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { SeriesOverviewContent } from "@/components/organisms/SeriesOverviewContent";
-import { getAllSeriesSlugs, getSeriesBySlug } from "@/lib/series";
+import { getAllSeriesSlugs, getSeriesBySlug, getSeriesSummaryBySlug } from "@/lib/series";
 
 export function generateStaticParams() {
   return getAllSeriesSlugs();
@@ -13,7 +13,7 @@ export async function generateMetadata({
   params: Promise<{ seriesSlug: string }>;
 }): Promise<Metadata> {
   const { seriesSlug } = await params;
-  const series = getSeriesBySlug(seriesSlug);
+  const series = getSeriesSummaryBySlug(seriesSlug);
 
   if (!series) {
     return {
@@ -22,8 +22,8 @@ export async function generateMetadata({
   }
 
   return {
-    title: `${series.summary.seriesTitle} | Series`,
-    description: series.summary.description,
+    title: `${series.seriesTitle} | Series`,
+    description: series.description,
   };
 }
 

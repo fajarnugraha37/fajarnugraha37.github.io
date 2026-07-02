@@ -1,6 +1,7 @@
 import fs from "fs/promises";
 import path from "path";
 import { createHash } from "crypto";
+import { spawnSync } from "child_process";
 import { parseContentFrontmatter } from "../lib/frontmatter";
 import {
   BLOG_INDEX_PATH,
@@ -17,6 +18,7 @@ const BLOGS_DIR = path.join(process.cwd(), "content", "blogs");
 const SERIES_DIR = path.join(process.cwd(), "content", "series");
 const SERIES_MANIFEST_PATH = path.join(SERIES_DIR, "manifest.json");
 const EMBEDDINGS_FILE = path.join(CONTENT_CACHE_DIR, "embeddings.json");
+const ASSETS_INDEX_META_FILE = path.join(CONTENT_CACHE_DIR, "assets-index-meta.json");
 const API_DIR = path.join(process.cwd(), "app", "api");
 const ASSETS_DIR = path.join(process.cwd(), "public", "assets");
 const EMBEDDING_MODEL = "Xenova/all-MiniLM-L6-v2";
@@ -32,6 +34,21 @@ interface BlogSearchDocument {
   title: string;
   tags: string[];
   description: string;
+}
+
+interface AssetIndexEntry {
+  name: string;
+  url: string;
+  category: string;
+  size: number;
+  lastModified: number;
+}
+
+interface AssetIndexMetaEntry {
+  url: string;
+  size: number;
+  fingerprint: string;
+  lastModified: number;
 }
 
 interface SeriesFrontmatter {
@@ -64,6 +81,97 @@ function fingerprintFromStat(stat: { size: number; mtimeMs: number }) {
   return `${stat.size}:${Math.trunc(stat.mtimeMs)}`;
 }
 
+interface GitContentState {
+  available: boolean;
+  trackedFingerprints: Map<string, string>;
+  dirtyPaths: Set<string>;
+}
+
+let gitContentStateCache: GitContentState | null = null;
+
+function toRepoRelativePath(filePath: string) {
+  return path.relative(process.cwd(), filePath).split(path.sep).join("/");
+}
+
+function loadGitContentState(): GitContentState {
+  if (gitContentStateCache) {
+    return gitContentStateCache;
+  }
+
+  const pathspecs = ["content/blogs", "content/series", "public/assets"];
+  const trackedFingerprints = new Map<string, string>();
+  const dirtyPaths = new Set<string>();
+
+  const trackedResult = spawnSync("git", ["ls-files", "-s", "-z", "--", ...pathspecs], {
+    cwd: process.cwd(),
+    encoding: "utf8",
+  });
+
+  const statusResult = spawnSync(
+    "git",
+    ["status", "--porcelain=v1", "--no-renames", "-z", "--untracked-files=all", "--", ...pathspecs],
+    {
+      cwd: process.cwd(),
+      encoding: "utf8",
+    },
+  );
+
+  if (trackedResult.status !== 0 || statusResult.status !== 0) {
+    gitContentStateCache = {
+      available: false,
+      trackedFingerprints,
+      dirtyPaths,
+    };
+    return gitContentStateCache;
+  }
+
+  for (const record of trackedResult.stdout.split("\0")) {
+    if (!record) {
+      continue;
+    }
+
+    const match = record.match(/^\d+\s+([0-9a-f]+)\s+\d+\t(.+)$/);
+    if (!match) {
+      continue;
+    }
+
+    trackedFingerprints.set(match[2], `git:${match[1]}`);
+  }
+
+  for (const record of statusResult.stdout.split("\0")) {
+    if (!record) {
+      continue;
+    }
+
+    const relativePath = record.slice(3);
+    if (relativePath) {
+      dirtyPaths.add(relativePath);
+    }
+  }
+
+  gitContentStateCache = {
+    available: true,
+    trackedFingerprints,
+    dirtyPaths,
+  };
+
+  return gitContentStateCache;
+}
+
+function getContentFingerprint(filePath: string, stat: { size: number; mtimeMs: number }) {
+  const relativePath = toRepoRelativePath(filePath);
+  const gitState = loadGitContentState();
+
+  if (gitState.available && !gitState.dirtyPaths.has(relativePath)) {
+    const fingerprint = gitState.trackedFingerprints.get(relativePath);
+    if (fingerprint) {
+      return fingerprint;
+    }
+  }
+
+  return `fs:${fingerprintFromStat(stat)}`;
+}
+
 async function readJsonFile<T>(filePath: string): Promise<T | null> {
   try {
     const raw = await fs.readFile(filePath, "utf8");
@@ -71,6 +179,22 @@ async function readJsonFile<T>(filePath: string): Promise<T | null> {
   } catch {
     return null;
   }
+}
+
+async function writeJsonIfChanged(filePath: string, value: unknown) {
+  const nextRaw = JSON.stringify(value);
+
+  try {
+    const currentRaw = await fs.readFile(filePath, "utf8");
+    if (currentRaw === nextRaw) {
+      return false;
+    }
+  } catch {
+    // File does not exist yet.
+  }
+
+  await fs.writeFile(filePath, nextRaw);
+  return true;
 }
 
 function normalizeDate(value: SeriesFrontmatter["date"]) {
@@ -169,13 +293,11 @@ function resolveLatestDate(parts: SeriesIndexPartEntry[]) {
 
 async function generateAssetsIndex() {
   console.log("Generating assets index...");
-  const assets: Array<{
-    name: string;
-    url: string;
-    category: string;
-    size: number;
-    lastModified: number;
-  }> = [];
+  const previousMeta =
+    (await readJsonFile<AssetIndexMetaEntry[]>(ASSETS_INDEX_META_FILE)) || [];
+  const previousMetaByUrl = new Map(previousMeta.map((entry) => [entry.url, entry]));
+  const assets: AssetIndexEntry[] = [];
+  const nextMeta: AssetIndexMetaEntry[] = [];
   const categories = ["img", "video", "audio", "doc"];
 
   for (const category of categories) {
@@ -188,12 +310,28 @@ async function generateAssetsIndex() {
         }
 
         const stat = await fs.stat(path.join(dir, entry.name));
+        const url = `/assets/${category}/${entry.name}`;
+        const fingerprint = getContentFingerprint(path.join(dir, entry.name), stat);
+        const previousEntry = previousMetaByUrl.get(url);
+        const lastModified =
+          previousEntry &&
+          previousEntry.size === stat.size &&
+          previousEntry.fingerprint === fingerprint
+            ? previousEntry.lastModified
+            : stat.mtimeMs;
+
         assets.push({
           name: entry.name,
-          url: `/assets/${category}/${entry.name}`,
+          url,
           category,
           size: stat.size,
-          lastModified: stat.mtimeMs,
+          lastModified,
+        });
+        nextMeta.push({
+          url,
+          size: stat.size,
+          fingerprint,
+          lastModified,
         });
       }
     } catch {
@@ -202,10 +340,16 @@ async function generateAssetsIndex() {
   }
 
   assets.sort((left, right) => right.lastModified - left.lastModified);
-  await fs.writeFile(
+  const didWrite = await writeJsonIfChanged(
     path.join(process.cwd(), "public", "assets-index.json"),
-    JSON.stringify(assets),
+    assets,
   );
+
+  if (!didWrite) {
+    console.log("Assets index unchanged. Skipping write.");
+  }
+
+  await writeJsonIfChanged(ASSETS_INDEX_META_FILE, nextMeta);
 }
 
 async function getApiRoutes(dir: string): Promise<string[]> {
@@ -281,7 +425,7 @@ async function buildBlogIndex() {
   for (const fileName of fileNames) {
     const fullPath = path.join(BLOGS_DIR, fileName);
     const stat = await fs.stat(fullPath);
-    const fingerprint = fingerprintFromStat(stat);
+    const fingerprint = getContentFingerprint(fullPath, stat);
     const previousEntry = previousEntries.get(fileName);
 
     if (previousEntry?.fingerprint === fingerprint) {
@@ -310,6 +454,12 @@ async function buildBlogIndex() {
   }
 
   items.sort((left, right) => (left.date < right.date ? 1 : -1));
+
+  const itemsUnchanged = JSON.stringify(previousIndex.items) === JSON.stringify(items);
+  if (itemsUnchanged) {
+    console.log("Blog index unchanged. Reusing existing cache.");
+    return { index: previousIndex, changedContent };
+  }
 
   const nextIndex: BlogIndexData = {
     generatedAt: new Date().toISOString(),
@@ -371,7 +521,7 @@ async function buildSeriesIndex() {
     for (const fileName of fileNames) {
       const fullPath = path.join(seriesDirectory, fileName);
       const stat = await fs.stat(fullPath);
-      const fingerprint = fingerprintFromStat(stat);
+      const fingerprint = getContentFingerprint(fullPath, stat);
       const previousPart = previousParts.get(fileName);
 
       if (!manifestChanged && previousPart?.fingerprint === fingerprint) {
@@ -442,6 +592,15 @@ async function buildSeriesIndex() {
   }
 
   entries.sort((left, right) => left.summary.seriesTitle.localeCompare(right.summary.seriesTitle));
+
+  const entriesUnchanged =
+    previousIndex?.manifestHash === manifestHash &&
+    JSON.stringify(previousIndex.entries) === JSON.stringify(entries);
+
+  if (entriesUnchanged && previousIndex) {
+    console.log("Series index unchanged. Reusing existing cache.");
+    return previousIndex;
+  }
 
   const nextIndex: SeriesIndexData = {
     generatedAt: new Date().toISOString(),
@@ -529,10 +688,10 @@ async function buildBlogSearchArtifacts(index: BlogIndexData, changedContent: Ma
     console.log("All blog embeddings are fresh. Skipping model load.");
   }
 
-  await fs.writeFile(EMBEDDINGS_FILE, JSON.stringify(nextCache));
-  await fs.writeFile(
+  const embeddingsUpdated = await writeJsonIfChanged(EMBEDDINGS_FILE, nextCache);
+  const searchIndexUpdated = await writeJsonIfChanged(
     path.join(process.cwd(), "public", "search-index.json"),
-    JSON.stringify(searchIndex),
+    searchIndex,
   );
 
   const slugs = Object.keys(embeddings);
@@ -553,10 +712,22 @@ async function buildBlogSearchArtifacts(index: BlogIndexData, changedContent: Ma
       .slice(0, 3);
   }
 
-  await fs.writeFile(
+  const relationsUpdated = await writeJsonIfChanged(
     path.join(process.cwd(), "public", "relations.json"),
-    JSON.stringify(relations),
+    relations,
   );
+
+  if (!embeddingsUpdated) {
+    console.log("Embeddings cache unchanged. Skipping write.");
+  }
+
+  if (!searchIndexUpdated) {
+    console.log("Search index unchanged. Skipping write.");
+  }
+
+  if (!relationsUpdated) {
+    console.log("Relations index unchanged. Skipping write.");
+  }
 }
 
 async function run() {

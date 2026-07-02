@@ -480,6 +480,24 @@ export function getAllSeries(): SeriesSummary[] {
   return getAllResolvedSeries().map(({ directorySlug: _directorySlug, ...series }) => series);
 }
 
+export function getSeriesSummaryBySlug(seriesSlug: string): SeriesSummary | null {
+  const indexedEntry = findSeriesIndexEntry(seriesSlug);
+  if (indexedEntry) {
+    return indexedEntry.summary;
+  }
+
+  const summary = getAllResolvedSeries().find(
+    (entry) => entry.seriesSlug === seriesSlug || entry.directorySlug === seriesSlug,
+  );
+
+  if (!summary) {
+    return null;
+  }
+
+  const { directorySlug: _directorySlug, ...publicSummary } = summary;
+  return publicSummary;
+}
+
 export function getSeriesCatalog(): SeriesCatalogSection[] {
   const summaries = getAllResolvedSeries();
   const manifest = getSeriesManifest();
@@ -600,6 +618,18 @@ export function getSeriesBySlug(seriesSlug: string): SeriesDetail | null {
   const detail = { summary: publicSummary, parts, phases };
   seriesDetailCache.set(seriesSlug, detail);
   return detail;
+}
+
+export function getSeriesPartSummaryBySlug(
+  seriesSlug: string,
+  partSlug: string,
+): SeriesPartSummary | null {
+  const directorySlug = resolveSeriesDirectorySlug(seriesSlug);
+  if (!directorySlug) {
+    return null;
+  }
+
+  return getSeriesPartSummaries(directorySlug).find((part) => part.slug === partSlug) || null;
 }
 
 export function getSeriesPart(seriesSlug: string, partSlug: string): SeriesPart | null {

@@ -1,4 +1,11 @@
-import { getBlogData, getAllBlogSlugs, getBlogsBySlugs, getHeadings, normalizeMdxSource } from "@/lib/mdx";
+import {
+  getBlogData,
+  getAllBlogSlugs,
+  getBlogMetadataBySlug,
+  getBlogsBySlugs,
+  getHeadings,
+  normalizeMdxSource,
+} from "@/lib/mdx";
 import { BlogContent } from "@/components/organisms/BlogContent";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import { mdxComponents } from "@/components/molecules/MDXComponents";
@@ -23,7 +30,14 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const resolvedParams = await params;
-  const postData = await getBlogData(resolvedParams.slug);
+  const postData = getBlogMetadataBySlug(resolvedParams.slug);
+
+  if (!postData) {
+    return {
+      title: "Blog Not Found",
+    };
+  }
+
   return {
     title: `${postData.title} | Fajar Abdi Nugraha`,
     description: postData.description,
