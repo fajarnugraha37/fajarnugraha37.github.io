@@ -3,21 +3,14 @@ import {
   getAllBlogSlugs,
   getBlogMetadataBySlug,
   getBlogsBySlugs,
-  getHeadings,
-  normalizeMdxSource,
 } from "@/lib/mdx";
 import { BlogContent } from "@/components/organisms/BlogContent";
-import { MDXRemote } from "next-mdx-remote/rsc";
 import { mdxComponents } from "@/components/molecules/MDXComponents";
 import type { Metadata } from "next";
 import relations from "@/public/relations.json";
-import remarkMath from "remark-math";
-import remarkEmoji from "remark-emoji";
-import remarkGfm from "remark-gfm";
-import rehypeKatex from "rehype-katex";
-import rehypeSlug from "rehype-slug";
-import rehypeRaw from "rehype-raw";
 import { getBlogAudioEntry } from "@/lib/audio/read";
+import { getBlogCompiledMdx } from "@/lib/compiled-mdx-cache";
+import { renderCompiledMdx } from "@/lib/compiled-mdx-render";
 
 export async function generateStaticParams() {
   const slugs = getAllBlogSlugs();
@@ -69,7 +62,7 @@ export default async function BlogPost({
 }) {
   const resolvedParams = await params;
   const postData = await getBlogData(resolvedParams.slug);
-  const headings = getHeadings(postData.title, postData.content);
+  const compiledMdx = await getBlogCompiledMdx(postData.slug);
 
   const relatedSlugs =
     (relations as Record<string, { slug: string }[]>)[postData.slug] || [];
@@ -79,20 +72,11 @@ export default async function BlogPost({
   return (
     <BlogContent 
       postData={postData} 
-      headings={headings} 
+      headings={compiledMdx.headings} 
       relatedPosts={relatedPosts}
       audioEntry={audioEntry}
     >
-      <MDXRemote
-        source={normalizeMdxSource(postData.content)}
-        components={mdxComponents}
-        options={{
-          mdxOptions: {
-            remarkPlugins: [remarkMath, remarkEmoji, remarkGfm],
-            rehypePlugins: [rehypeKatex, rehypeSlug, rehypeRaw],
-          },
-        }}
-      />
+      {renderCompiledMdx(compiledMdx, mdxComponents)}
     </BlogContent>
   );
 }

@@ -1,5 +1,5 @@
-import { FFmpegLabContent } from "@/components/organisms/FFmpegLabContent";
 import { Metadata } from "next";
+import { FFmpegLabRoute } from "@/components/organisms/FFmpegLabRoute";
 
 export const metadata: Metadata = {
   title: "FFmpeg Lab | Fajar Abdi Nugraha",
@@ -11,5 +11,5 @@ export const metadata: Metadata = {
  * Features a WASM-based signal processor for in-browser video/audio manipulation.
  */
 export default function FFmpegLab() {
-  return <FFmpegLabContent />;
+  return <FFmpegLabRoute />;
 }

@@ -1,5 +1,5 @@
-import { DuckDbLabContent } from "@/components/organisms/DuckDbLabContent";
 import { Metadata } from "next";
+import { DuckDbLabRoute } from "@/components/organisms/DuckDbLabRoute";
 
 export const metadata: Metadata = {
   title: "DuckDB Lab | Fajar Abdi Nugraha",
@@ -11,5 +11,5 @@ export const metadata: Metadata = {
  * Features a WASM-based analytical engine for processing CSV, Parquet, and JSON datasets.
  */
 export default function DuckDBLab() {
-  return <DuckDbLabContent />;
+  return <DuckDbLabRoute />;
 }

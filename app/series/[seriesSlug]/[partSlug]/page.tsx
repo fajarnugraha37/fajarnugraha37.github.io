@@ -1,22 +1,15 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { MDXRemote } from "next-mdx-remote/rsc";
-import remarkMath from "remark-math";
-import remarkEmoji from "remark-emoji";
-import remarkGfm from "remark-gfm";
-import rehypeKatex from "rehype-katex";
-import rehypeSlug from "rehype-slug";
-import rehypeRaw from "rehype-raw";
 import { mdxComponents } from "@/components/molecules/MDXComponents";
 import { SeriesPartContent } from "@/components/organisms/SeriesPartContent";
 import {
   getAllSeriesPartParams,
   getSeriesBySlug,
-  getSeriesPart,
   getSeriesPartSummaryBySlug,
 } from "@/lib/series";
-import { getHeadings, normalizeMdxSource } from "@/lib/mdx";
 import { getSeriesPartAudioEntry } from "@/lib/audio/read";
+import { getSeriesPartCompiledMdx } from "@/lib/compiled-mdx-cache";
+import { renderCompiledMdx } from "@/lib/compiled-mdx-render";
 
 export function generateStaticParams() {
   return getAllSeriesPartParams();
@@ -56,13 +49,13 @@ export default async function SeriesPartPage({
 }) {
   const { seriesSlug, partSlug } = await params;
   const series = getSeriesBySlug(seriesSlug);
-  const part = getSeriesPart(seriesSlug, partSlug);
+  const part = getSeriesPartSummaryBySlug(seriesSlug, partSlug);
+  const compiledMdx = await getSeriesPartCompiledMdx(seriesSlug, partSlug);
 
-  if (!series || !part) {
+  if (!series || !part || !compiledMdx) {
     notFound();
   }
 
-  const headings = getHeadings(part.title, part.content);
   const currentIndex = series.parts.findIndex((entry) => entry.slug === part.slug);
   const previousPart = currentIndex > 0 ? series.parts[currentIndex - 1] : null;
   const nextPart =
@@ -74,22 +67,13 @@ export default async function SeriesPartPage({
   return (
     <SeriesPartContent
       part={part}
-      headings={headings}
+      headings={compiledMdx.headings}
       parts={series.parts}
       previousPart={previousPart}
       nextPart={nextPart}
       audioEntry={audioEntry}
     >
-      <MDXRemote
-        source={normalizeMdxSource(part.content)}
-        components={mdxComponents}
-        options={{
-          mdxOptions: {
-            remarkPlugins: [remarkMath, remarkEmoji, remarkGfm],
-            rehypePlugins: [rehypeKatex, rehypeSlug, rehypeRaw],
-          },
-        }}
-      />
+      {renderCompiledMdx(compiledMdx, mdxComponents)}
     </SeriesPartContent>
   );
 }

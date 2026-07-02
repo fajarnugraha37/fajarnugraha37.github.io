@@ -5,14 +5,21 @@ import { spawnSync } from "child_process";
 import { parseContentFrontmatter } from "../lib/frontmatter";
 import {
   BLOG_INDEX_PATH,
+  COMPILED_MDX_CACHE_VERSION,
   CONTENT_CACHE_DIR,
   SERIES_INDEX_PATH,
+  getBlogCompiledMdxCachePath,
+  getSeriesCompiledMdxCachePath,
   type BlogIndexData,
   type BlogIndexEntry,
   type SeriesIndexData,
   type SeriesIndexEntry,
   type SeriesIndexPartEntry,
 } from "../lib/content-index";
+import {
+  buildCompiledMdxCacheEntry,
+  ensureCompiledMdxCacheDirectory,
+} from "../lib/compiled-mdx-cache";
 
 const BLOGS_DIR = path.join(process.cwd(), "content", "blogs");
 const SERIES_DIR = path.join(process.cwd(), "content", "series");
@@ -730,6 +737,79 @@ async function buildBlogSearchArtifacts(index: BlogIndexData, changedContent: Ma
   }
 }
 
+async function buildCompiledMdxCaches(
+  blogIndex: BlogIndexData,
+  seriesIndex: SeriesIndexData,
+  changedContent: Map<string, { raw: string; content: string; contentHash: string }>,
+) {
+  let compiledBlogs = 0;
+  let compiledSeriesParts = 0;
+
+  for (const entry of blogIndex.items) {
+    const cachePath = getBlogCompiledMdxCachePath(entry.slug);
+    const existingCache =
+      await readJsonFile<{ fingerprint?: string; version?: number }>(cachePath);
+
+    if (
+      existingCache?.version === COMPILED_MDX_CACHE_VERSION &&
+      existingCache.fingerprint === entry.fingerprint
+    ) {
+      continue;
+    }
+
+    const changed = changedContent.get(entry.fileName);
+    const raw = changed?.raw || (await fs.readFile(path.join(BLOGS_DIR, entry.fileName), "utf8"));
+    const content = changed?.content || parseContentFrontmatter(raw).content;
+    const cacheEntry = await buildCompiledMdxCacheEntry({
+      title: entry.title,
+      content,
+      fingerprint: entry.fingerprint,
+    });
+
+    await ensureCompiledMdxCacheDirectory(cachePath);
+    await writeJsonIfChanged(cachePath, cacheEntry);
+    compiledBlogs += 1;
+  }
+
+  for (const seriesEntry of seriesIndex.entries) {
+    for (const part of seriesEntry.parts) {
+      const cachePath = getSeriesCompiledMdxCachePath(seriesEntry.publicSlug, part.slug);
+      const existingCache =
+        await readJsonFile<{ fingerprint?: string; version?: number }>(cachePath);
+
+      if (
+        existingCache?.version === COMPILED_MDX_CACHE_VERSION &&
+        existingCache.fingerprint === part.fingerprint
+      ) {
+        continue;
+      }
+
+      const raw = await fs.readFile(
+        path.join(SERIES_DIR, seriesEntry.directorySlug, part.fileName),
+        "utf8",
+      );
+      const { content } = parseContentFrontmatter(raw);
+      const cacheEntry = await buildCompiledMdxCacheEntry({
+        title: part.title,
+        content,
+        fingerprint: part.fingerprint,
+      });
+
+      await ensureCompiledMdxCacheDirectory(cachePath);
+      await writeJsonIfChanged(cachePath, cacheEntry);
+      compiledSeriesParts += 1;
+    }
+  }
+
+  if (compiledBlogs > 0 || compiledSeriesParts > 0) {
+    console.log(
+      `Compiled ${compiledBlogs} blog MDX file(s) and ${compiledSeriesParts} series MDX file(s).`,
+    );
+  } else {
+    console.log("Compiled MDX cache unchanged. Skipping recompilation.");
+  }
+}
+
 async function run() {
   console.log("Starting pre-build...");
   await fs.mkdir(CONTENT_CACHE_DIR, { recursive: true });
@@ -746,6 +826,7 @@ async function run() {
     `Cached ${blogIndex.items.length} blog entries and ${seriesIndex.entries.length} series indexes.`,
   );
 
+  await buildCompiledMdxCaches(blogIndex, seriesIndex, changedContent);
   await buildBlogSearchArtifacts(blogIndex, changedContent);
   await generateAssetsIndex();
 
