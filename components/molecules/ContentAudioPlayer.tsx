@@ -1,5 +1,3 @@
-"use client";
-
 import { AudioManifestEntry } from "@/types";
 
 interface ContentAudioPlayerProps {

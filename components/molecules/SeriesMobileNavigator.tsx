@@ -3,15 +3,28 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react";
-import { SeriesPartGroup, SeriesPartSummary } from "@/types";
 import { cn } from "@/lib/utils";
+
+export interface SeriesNavigatorPart {
+  slug: string;
+  title: string;
+  partTitle?: string;
+  order: number;
+}
+
+export interface SeriesNavigatorGroup {
+  id: string;
+  title: string;
+  subtitle?: string;
+  parts: SeriesNavigatorPart[];
+}
 
 interface SeriesMobileNavigatorProps {
   seriesSlug: string;
   activePartSlug: string;
-  groups: SeriesPartGroup[];
-  previousPart: SeriesPartSummary | null;
-  nextPart: SeriesPartSummary | null;
+  groups: SeriesNavigatorGroup[];
+  previousPart: SeriesNavigatorPart | null;
+  nextPart: SeriesNavigatorPart | null;
   activeGroupId?: string | null;
 }
 

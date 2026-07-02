@@ -53,7 +53,6 @@ export async function generateMetadata({
 /**
  * Blog Post Page
  * Server Component that fetches data and renders MDX content.
- * Rendered MDX is passed to BlogContent (Client) to avoid RSC async errors.
  */
 export default async function BlogPost({
   params,

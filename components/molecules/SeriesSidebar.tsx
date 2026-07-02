@@ -1,5 +1,3 @@
-"use client";
-
 import Link from "next/link";
 import { SeriesPartGroup } from "@/types";
 import { cn } from "@/lib/utils";

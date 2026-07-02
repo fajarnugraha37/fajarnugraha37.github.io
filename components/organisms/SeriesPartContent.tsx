@@ -1,15 +1,18 @@
-"use client";
-
-import { useEffect, useMemo } from "react";
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
-import { PageTransition } from "@/components/atoms/PageTransition";
+import { PageTransitionEffects } from "@/components/atoms/PageTransitionEffects";
 import { TocNav } from "@/components/molecules/TocNav";
 import { ContentAudioPlayer } from "@/components/molecules/ContentAudioPlayer";
 import { AudioManifestEntry, SeriesPartSummary, TocHeading } from "@/types";
 import { SeriesSidebar } from "@/components/molecules/SeriesSidebar";
-import { SeriesMobileNavigator } from "@/components/molecules/SeriesMobileNavigator";
+import {
+  SeriesMobileNavigator,
+  type SeriesNavigatorGroup,
+  type SeriesNavigatorPart,
+} from "@/components/molecules/SeriesMobileNavigator";
 import { SeriesPrevNextNav } from "@/components/molecules/SeriesPrevNextNav";
+import { SeriesProgressTracker } from "@/components/molecules/SeriesProgressTracker";
 import { getSeriesGroupForPart, groupSeriesParts } from "@/lib/series-navigation";
 
 interface SeriesPartContentProps {
@@ -19,7 +22,7 @@ interface SeriesPartContentProps {
   previousPart: SeriesPartSummary | null;
   nextPart: SeriesPartSummary | null;
   audioEntry?: AudioManifestEntry | null;
-  children: React.ReactNode;
+  children: ReactNode;
 }
 
 export function SeriesPartContent({
@@ -31,24 +34,45 @@ export function SeriesPartContent({
   audioEntry,
   children,
 }: SeriesPartContentProps) {
-  const groups = useMemo(() => groupSeriesParts(parts), [parts]);
-  const currentGroup = useMemo(() => getSeriesGroupForPart(groups, part.slug), [groups, part.slug]);
+  const groups = groupSeriesParts(parts);
+  const currentGroup = getSeriesGroupForPart(groups, part.slug);
   const showToc = headings.length > 2;
   const displayTitle = part.partTitle || part.title;
   const lessonHighlights = headings.slice(1, 4);
   const visibleTags = part.tags.slice(0, 4);
   const hiddenTagsCount = Math.max(part.tags.length - visibleTags.length, 0);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(`series-progress:${part.seriesSlug}`, part.slug);
-    } catch {
-      return;
-    }
-  }, [part.seriesSlug, part.slug]);
+  const mobileGroups: SeriesNavigatorGroup[] = groups.map((group) => ({
+    id: group.id,
+    title: group.title,
+    subtitle: group.subtitle,
+    parts: group.parts.map((groupPart) => ({
+      slug: groupPart.slug,
+      title: groupPart.title,
+      partTitle: groupPart.partTitle,
+      order: groupPart.order,
+    })),
+  }));
+  const previousMobilePart: SeriesNavigatorPart | null = previousPart
+    ? {
+        slug: previousPart.slug,
+        title: previousPart.title,
+        partTitle: previousPart.partTitle,
+        order: previousPart.order,
+      }
+    : null;
+  const nextMobilePart: SeriesNavigatorPart | null = nextPart
+    ? {
+        slug: nextPart.slug,
+        title: nextPart.title,
+        partTitle: nextPart.partTitle,
+        order: nextPart.order,
+      }
+    : null;
 
   return (
-    <PageTransition>
+    <>
+      <PageTransitionEffects />
+      <SeriesProgressTracker seriesSlug={part.seriesSlug} partSlug={part.slug} />
       <div className="relative min-h-screen">
         <article className={`max-w-[1500px] mx-auto relative z-10 px-4 pt-6 pb-28 md:pt-10 lg:pb-12 grid grid-cols-1 ${showToc ? "lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)_220px]" : "lg:grid-cols-[260px_minmax(0,1fr)]"} gap-6 lg:gap-8 xl:gap-10`}>
           <aside className="hidden lg:block relative">
@@ -151,9 +175,9 @@ export function SeriesPartContent({
             <SeriesMobileNavigator
               seriesSlug={part.seriesSlug}
               activePartSlug={part.slug}
-              groups={groups}
-              previousPart={previousPart}
-              nextPart={nextPart}
+              groups={mobileGroups}
+              previousPart={previousMobilePart}
+              nextPart={nextMobilePart}
               activeGroupId={currentGroup?.id}
             />
 
@@ -249,6 +273,6 @@ export function SeriesPartContent({
           )}
         </article>
       </div>
-    </PageTransition>
+    </>
   );
 }

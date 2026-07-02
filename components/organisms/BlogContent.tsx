@@ -1,20 +1,18 @@
-"use client";
-
-import React from "react";
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
+import { PageTransitionEffects } from "@/components/atoms/PageTransitionEffects";
 import { TocNav } from "@/components/molecules/TocNav";
 import { BlogActions } from "@/components/molecules/BlogActions";
 import { ContentAudioPlayer } from "@/components/molecules/ContentAudioPlayer";
 import { AudioManifestEntry, Blog, BlogMetadata, TocHeading } from "@/types";
-import { PageTransition } from "@/components/atoms/PageTransition";
 
 interface BlogContentProps {
   postData: Blog;
   headings: TocHeading[];
   relatedPosts: BlogMetadata[];
   audioEntry?: AudioManifestEntry | null;
-  children: React.ReactNode; // The rendered MDX content
+  children: ReactNode;
 }
 
 /**
@@ -24,7 +22,8 @@ interface BlogContentProps {
  */
 export function BlogContent({ postData, headings, relatedPosts, audioEntry, children }: BlogContentProps) {
   return (
-    <PageTransition>
+    <>
+      <PageTransitionEffects />
       <div className="relative min-h-screen">
         <article className="max-w-[1400px] mx-auto relative z-10 px-4 pt-8 md:pt-12 grid grid-cols-1 lg:grid-cols-[240px_minmax(0,1fr)_240px] gap-12">
           {/* Left Sidebar: TOC */}
@@ -135,6 +134,6 @@ export function BlogContent({ postData, headings, relatedPosts, audioEntry, chil
           <div className="absolute bottom-0 left-0 w-[50vw] h-[50vh] bg-accent-secondary/5 blur-[150px] rounded-full" />
         </div>
       </div>
-    </PageTransition>
+    </>
   );
 }
