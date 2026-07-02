@@ -6,13 +6,13 @@ import { ChevronLeft } from "lucide-react";
 import { TocNav } from "@/components/molecules/TocNav";
 import { BlogActions } from "@/components/molecules/BlogActions";
 import { ContentAudioPlayer } from "@/components/molecules/ContentAudioPlayer";
-import { AudioManifestEntry, Blog, TocHeading } from "@/types";
+import { AudioManifestEntry, Blog, BlogMetadata, TocHeading } from "@/types";
 import { PageTransition } from "@/components/atoms/PageTransition";
 
 interface BlogContentProps {
   postData: Blog;
   headings: TocHeading[];
-  relatedPosts: Blog[];
+  relatedPosts: BlogMetadata[];
   audioEntry?: AudioManifestEntry | null;
   children: React.ReactNode; // The rendered MDX content
 }

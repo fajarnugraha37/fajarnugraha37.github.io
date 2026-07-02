@@ -11,6 +11,11 @@ import {
   SeriesPartSummary,
   SeriesSummary,
 } from "@/types";
+import {
+  SERIES_INDEX_PATH,
+  type SeriesIndexData,
+  type SeriesIndexPartEntry,
+} from "@/lib/content-index";
 import { calculateContentStats } from "@/lib/mdx";
 import { parseContentFrontmatter } from "@/lib/frontmatter";
 import { buildSeriesOverviewPhases } from "@/lib/series-navigation";
@@ -50,6 +55,49 @@ const seriesDirectoryNamesCache: { value: string[] | null } = { value: null };
 const seriesDirectoryEntriesCache: { value: SeriesDirectoryEntry[] | null } = { value: null };
 const resolvedSeriesCache: { value: SeriesResolvedSummary[] | null } = { value: null };
 const seriesDetailCache = new Map<string, SeriesDetail | null>();
+const seriesIndexCache: { value: SeriesIndexData | null | undefined } = { value: undefined };
+
+function loadSeriesIndex() {
+  if (seriesIndexCache.value !== undefined) {
+    return seriesIndexCache.value;
+  }
+
+  try {
+    if (!fs.existsSync(SERIES_INDEX_PATH)) {
+      seriesIndexCache.value = null;
+      return null;
+    }
+
+    const raw = fs.readFileSync(SERIES_INDEX_PATH, "utf8");
+    seriesIndexCache.value = JSON.parse(raw) as SeriesIndexData;
+    return seriesIndexCache.value;
+  } catch {
+    seriesIndexCache.value = null;
+    return null;
+  }
+}
+
+function stripIndexedSeriesPart({
+  fileName: _fileName,
+  fingerprint: _fingerprint,
+  contentHash: _contentHash,
+  ...part
+}: SeriesIndexPartEntry): SeriesPartSummary {
+  return part;
+}
+
+function findSeriesIndexEntry(seriesSlug: string) {
+  const seriesIndex = loadSeriesIndex();
+  if (!seriesIndex) {
+    return null;
+  }
+
+  return (
+    seriesIndex.entries.find(
+      (entry) => entry.directorySlug === seriesSlug || entry.publicSlug === seriesSlug,
+    ) || null
+  );
+}
 
 function normalizeDate(value: SeriesFrontmatter["date"]) {
   if (!value) {
@@ -240,6 +288,11 @@ function readSeriesPart(seriesSlug: string, fileName: string): SeriesPart {
 }
 
 function getSeriesDirectoryNames() {
+  const seriesIndex = loadSeriesIndex();
+  if (seriesIndex) {
+    return seriesIndex.entries.map((entry) => entry.directorySlug);
+  }
+
   if (seriesDirectoryNamesCache.value) {
     return seriesDirectoryNamesCache.value;
   }
@@ -258,6 +311,14 @@ function getSeriesDirectoryNames() {
 }
 
 function getSeriesDirectoryEntries(): SeriesDirectoryEntry[] {
+  const seriesIndex = loadSeriesIndex();
+  if (seriesIndex) {
+    return seriesIndex.entries.map((entry) => ({
+      directorySlug: entry.directorySlug,
+      publicSlug: entry.publicSlug,
+    }));
+  }
+
   if (seriesDirectoryEntriesCache.value) {
     return seriesDirectoryEntriesCache.value;
   }
@@ -281,6 +342,11 @@ function getSeriesDirectoryEntries(): SeriesDirectoryEntry[] {
 }
 
 function resolveSeriesDirectorySlug(seriesSlug: string) {
+  const seriesIndexEntry = findSeriesIndexEntry(seriesSlug);
+  if (seriesIndexEntry) {
+    return seriesIndexEntry.directorySlug;
+  }
+
   const directMatch = getSeriesDirectoryNames().find((directorySlug) => directorySlug === seriesSlug);
   if (directMatch) {
     return directMatch;
@@ -291,6 +357,18 @@ function resolveSeriesDirectorySlug(seriesSlug: string) {
 }
 
 function getSeriesPartSummaries(seriesSlug: string): SeriesPartSummary[] {
+  const indexedEntry = findSeriesIndexEntry(seriesSlug);
+  if (indexedEntry) {
+    const cachedParts = seriesPartSummariesCache.get(indexedEntry.directorySlug);
+    if (cachedParts) {
+      return cachedParts;
+    }
+
+    const parts = indexedEntry.parts.map(stripIndexedSeriesPart);
+    seriesPartSummariesCache.set(indexedEntry.directorySlug, parts);
+    return parts;
+  }
+
   const cachedParts = seriesPartSummariesCache.get(seriesSlug);
   if (cachedParts) {
     return cachedParts;
@@ -353,6 +431,14 @@ function getSeriesManifest(): SeriesManifestData {
 }
 
 function getAllResolvedSeries(): SeriesResolvedSummary[] {
+  const seriesIndex = loadSeriesIndex();
+  if (seriesIndex) {
+    return seriesIndex.entries.map((entry) => ({
+      directorySlug: entry.directorySlug,
+      ...entry.summary,
+    }));
+  }
+
   if (resolvedSeriesCache.value) {
     return resolvedSeriesCache.value;
   }
@@ -470,6 +556,23 @@ export function getSeriesBySlug(seriesSlug: string): SeriesDetail | null {
     return seriesDetailCache.get(seriesSlug) || null;
   }
 
+  const indexedEntry = findSeriesIndexEntry(seriesSlug);
+  if (indexedEntry) {
+    const manifest = getSeriesManifest();
+    const manifestEntry =
+      manifest.series.find((entry) => entry.slug === indexedEntry.publicSlug) ||
+      manifest.series.find((entry) => entry.slug === indexedEntry.directorySlug);
+    const parts = indexedEntry.parts.map(stripIndexedSeriesPart);
+    const phases = buildSeriesOverviewPhases(parts, manifestEntry?.phases);
+    const detail = {
+      summary: indexedEntry.summary,
+      parts,
+      phases,
+    };
+    seriesDetailCache.set(seriesSlug, detail);
+    return detail;
+  }
+
   const directorySlug = resolveSeriesDirectorySlug(seriesSlug);
   if (!directorySlug) {
     seriesDetailCache.set(seriesSlug, null);
@@ -523,14 +626,50 @@ export function getSeriesPart(seriesSlug: string, partSlug: string): SeriesPart 
 }
 
 export function getAllSeriesSlugs() {
+  const seriesIndex = loadSeriesIndex();
+  if (seriesIndex) {
+    return seriesIndex.entries.map((entry) => ({ seriesSlug: entry.publicSlug }));
+  }
+
   return getAllSeries().map((series) => ({ seriesSlug: series.seriesSlug }));
 }
 
 export function getAllSeriesPartParams() {
+  const seriesIndex = loadSeriesIndex();
+  if (seriesIndex) {
+    return seriesIndex.entries.flatMap((entry) =>
+      entry.parts.map((part) => ({
+        seriesSlug: entry.publicSlug,
+        partSlug: part.slug,
+      })),
+    );
+  }
+
   return getAllResolvedSeries().flatMap((series) =>
     getSeriesPartSummaries(series.directorySlug).map((part) => ({
       seriesSlug: series.seriesSlug,
       partSlug: part.slug,
+    })),
+  );
+}
+
+export function getAllSeriesPartEntries() {
+  const seriesIndex = loadSeriesIndex();
+  if (seriesIndex) {
+    return seriesIndex.entries.flatMap((entry) =>
+      entry.parts.map((part) => ({
+        seriesSlug: entry.publicSlug,
+        partSlug: part.slug,
+        date: part.date,
+      })),
+    );
+  }
+
+  return getAllResolvedSeries().flatMap((series) =>
+    getSeriesPartSummaries(series.directorySlug).map((part) => ({
+      seriesSlug: series.seriesSlug,
+      partSlug: part.slug,
+      date: part.date,
     })),
   );
 }

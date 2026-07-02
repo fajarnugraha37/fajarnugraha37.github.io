@@ -2,10 +2,42 @@ import fs from "fs";
 import path from "path";
 import { BlogMetadata, Blog, ContentStats, TocHeading } from "@/types";
 import { parseContentFrontmatter } from "@/lib/frontmatter";
+import { BLOG_INDEX_PATH, type BlogIndexData } from "@/lib/content-index";
 
 const blogsDirectory = path.join(process.cwd(), "content", "blogs");
+const blogIndexCache: { value: BlogIndexData | null | undefined } = { value: undefined };
+const blogDataCache = new Map<string, Blog>();
+
+function loadBlogIndex() {
+  if (blogIndexCache.value !== undefined) {
+    return blogIndexCache.value;
+  }
+
+  try {
+    if (!fs.existsSync(BLOG_INDEX_PATH)) {
+      blogIndexCache.value = null;
+      return null;
+    }
+
+    const raw = fs.readFileSync(BLOG_INDEX_PATH, "utf8");
+    blogIndexCache.value = JSON.parse(raw) as BlogIndexData;
+    return blogIndexCache.value;
+  } catch {
+    blogIndexCache.value = null;
+    return null;
+  }
+}
+
+function stripBlogIndexEntry({ fileName: _fileName, fingerprint: _fingerprint, contentHash: _contentHash, ...entry }: BlogIndexData["items"][number]): BlogMetadata {
+  return entry;
+}
 
 export function getSortedBlogsData(): BlogMetadata[] {
+  const cachedIndex = loadBlogIndex();
+  if (cachedIndex) {
+    return cachedIndex.items.map(stripBlogIndexEntry);
+  }
+
   if (!fs.existsSync(blogsDirectory)) {
     return [];
   }
@@ -33,10 +65,26 @@ export function getSortedBlogsData(): BlogMetadata[] {
 }
 
 export function getAllBlogSlugs() {
+  const cachedIndex = loadBlogIndex();
+  if (cachedIndex) {
+    return cachedIndex.items.map((entry) => ({ slug: entry.slug }));
+  }
+
   if (!fs.existsSync(blogsDirectory)) return [];
   return fs.readdirSync(blogsDirectory)
     .filter((f) => f.endsWith(".mdx"))
     .map((f) => ({ slug: f.replace(/\.mdx$/, "") }));
+}
+
+export function getBlogsBySlugs(slugs: string[]) {
+  if (slugs.length === 0) {
+    return [];
+  }
+
+  const metadataBySlug = new Map(getSortedBlogsData().map((blog) => [blog.slug, blog]));
+  return slugs
+    .map((slug) => metadataBySlug.get(slug))
+    .filter((blog): blog is BlogMetadata => Boolean(blog));
 }
 
 export function calculateContentStats(rawContent: string): ContentStats {
@@ -172,12 +220,17 @@ export function getHeadings(title: string, content: string): TocHeading[] {
 }
 
 export async function getBlogData(slug: string): Promise<Blog> {
+  const cachedBlog = blogDataCache.get(slug);
+  if (cachedBlog) {
+    return cachedBlog;
+  }
+
   const fullPath = path.join(blogsDirectory, `${slug}.mdx`);
   const fileContents = fs.readFileSync(fullPath, "utf8");
   const { data, content } = parseContentFrontmatter(fileContents);
   const stats = calculateContentStats(content);
 
-  return {
+  const blog = {
     slug,
     content,
     title: data.title,
@@ -186,4 +239,7 @@ export async function getBlogData(slug: string): Promise<Blog> {
     description: data.description || "",
     stats,
   };
+
+  blogDataCache.set(slug, blog);
+  return blog;
 }

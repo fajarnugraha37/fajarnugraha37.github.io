@@ -1,6 +1,6 @@
 import { MetadataRoute } from "next";
 import { getSortedBlogsData } from "@/lib/mdx";
-import { getAllSeries, getSeriesBySlug } from "@/lib/series";
+import { getAllSeries, getAllSeriesPartEntries } from "@/lib/series";
 import { ENV } from "@/lib/env";
 
 export const dynamic = "force-static";
@@ -8,6 +8,7 @@ export const dynamic = "force-static";
 export default function sitemap(): MetadataRoute.Sitemap {
   const blogs = getSortedBlogsData();
   const series = getAllSeries();
+  const seriesParts = getAllSeriesPartEntries();
   const baseUrl = ENV.BASE_URL;
 
   const blogUrls = blogs.map((blog) => ({
@@ -20,17 +21,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
     lastModified: new Date(),
   }));
 
-  const seriesPartUrls = series.flatMap((entry) => {
-    const detail = getSeriesBySlug(entry.seriesSlug);
-    if (!detail) {
-      return [];
-    }
-
-    return detail.parts.map((part) => ({
-      url: `${baseUrl}/series/${entry.seriesSlug}/${part.slug}`,
-      lastModified: part.date ? new Date(part.date) : new Date(),
-    }));
-  });
+  const seriesPartUrls = seriesParts.map((part) => ({
+    url: `${baseUrl}/series/${part.seriesSlug}/${part.partSlug}`,
+    lastModified: part.date ? new Date(part.date) : new Date(),
+  }));
 
   const labPaths = [
     "/labs",

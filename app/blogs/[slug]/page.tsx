@@ -1,4 +1,4 @@
-import { getBlogData, getAllBlogSlugs, getHeadings, normalizeMdxSource } from "@/lib/mdx";
+import { getBlogData, getAllBlogSlugs, getBlogsBySlugs, getHeadings, normalizeMdxSource } from "@/lib/mdx";
 import { BlogContent } from "@/components/organisms/BlogContent";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import { mdxComponents } from "@/components/molecules/MDXComponents";
@@ -59,9 +59,7 @@ export default async function BlogPost({
 
   const relatedSlugs =
     (relations as Record<string, { slug: string }[]>)[postData.slug] || [];
-  const relatedPosts = await Promise.all(
-    relatedSlugs.map((r) => getBlogData(r.slug)),
-  );
+  const relatedPosts = getBlogsBySlugs(relatedSlugs.map((entry) => entry.slug));
   const audioEntry = getBlogAudioEntry(postData.slug);
 
   return (
