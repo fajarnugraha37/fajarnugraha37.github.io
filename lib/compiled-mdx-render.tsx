@@ -1,5 +1,6 @@
 import React from "react";
 import * as jsxRuntime from "react/jsx-runtime";
+import * as jsxDevRuntime from "react/jsx-dev-runtime";
 import type { MDXComponents } from "mdx/types";
 import type { CompiledMdxCacheEntry } from "@/lib/content-index";
 
@@ -8,7 +9,10 @@ export function renderCompiledMdx(
   components: MDXComponents,
 ) {
   const fullScope = {
-    opts: jsxRuntime,
+    opts: {
+      ...jsxRuntime,
+      ...jsxDevRuntime,
+    },
     frontmatter: cacheEntry.frontmatter,
     ...cacheEntry.scope,
   };
