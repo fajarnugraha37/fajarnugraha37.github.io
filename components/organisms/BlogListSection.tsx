@@ -27,13 +27,13 @@ interface BlogListSectionProps {
 
 export function BlogListSection({ blogs }: BlogListSectionProps) {
   const searchParams = useSearchParams();
-  const initialSearch = searchParams.get("q") || "";
-  const initialTags = searchParams.get("t") ? searchParams.get("t")!.split(",") : [];
-  const initialPage = searchParams.get("p") ? parseInt(searchParams.get("p")!, 10) : 1;
+  const initialSearch = searchParams?.get("q") || "";
+  const initialTags = searchParams?.get("t") ? searchParams.get("t")!.split(",") : [];
+  const initialPage = searchParams?.get("p") ? parseInt(searchParams.get("p")!, 10) : 1;
   const initialSort =
-    (searchParams.get("sort") as BlogSortOption | null) && 
-    BLOG_SORT_OPTIONS.some((option) => option.value === searchParams.get("sort"))
-      ? (searchParams.get("sort") as BlogSortOption)
+    (searchParams?.get("sort") as BlogSortOption | null) && 
+    BLOG_SORT_OPTIONS.some((option) => option.value === searchParams?.get("sort"))
+      ? (searchParams?.get("sort") as BlogSortOption)
       : "newest";
 
   const [searchQuery, setSearchQuery] = useState(initialSearch);
@@ -62,7 +62,7 @@ export function BlogListSection({ blogs }: BlogListSectionProps) {
   const pagedBlogs = sortedBlogs.slice(startIndex, endIndex);
   const hasActiveFilters =
     searchQuery.trim().length > 0 || selectedTags.length > 0 || sortBy !== "newest";
-  const showFeatured = !hasActiveFilters && safePage === 1 && featuredBlogs.length > 0;
+  const showFeaturedStrip = !hasActiveFilters && safePage === 1 && featuredBlogs.length > 0;
 
   useBlogUrlSync({ searchQuery, selectedTags, page: safePage, sortBy });
 
@@ -169,33 +169,6 @@ export function BlogListSection({ blogs }: BlogListSectionProps) {
         </div>
       </section> */}
 
-      {showFeatured && !isMobile ? (
-        <section className="space-y-4">
-          <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-            <div>
-              <span className="text-[10px] font-mono uppercase tracking-[0.22em] text-accent-tertiary">
-                Featured Entry Points
-              </span>
-              <h2 className="mt-2 text-2xl font-black uppercase tracking-tight text-foreground md:text-3xl">
-                Strong places to start
-              </h2>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            {featuredBlogs.map((blog, index) => (
-              <BlogCard
-                key={blog.slug}
-                blog={blog}
-                index={index}
-                selectedTags={selectedTags}
-                variant="featured"
-              />
-            ))}
-          </div>
-        </section>
-      ) : null}
-
       <div className="flex flex-col gap-8 md:flex-row md:items-start" id="blog-archive-results">
         <aside className="flex w-full shrink-0 flex-col gap-6 md:sticky md:top-24 md:w-72 md:max-h-[calc(100vh-7rem)] md:overflow-y-auto">
           <div className="relative group">
@@ -275,6 +248,37 @@ export function BlogListSection({ blogs }: BlogListSectionProps) {
                 </span>
               )}
             </div>
+
+            {showFeaturedStrip ? (
+              <div className="mt-4 border-t border-border/40 pt-4">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="space-y-1">
+                    <span className="block text-[10px] font-mono uppercase tracking-[0.2em] text-accent-tertiary">
+                      Featured Entry Points
+                    </span>
+                    <span className="block text-xs text-muted-foreground">
+                      Start with a few strong essays, then narrow the archive with tags or search.
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {featuredBlogs.map((blog, index) => (
+                      <Link
+                        key={blog.slug}
+                        href={`/blogs/${blog.slug}`}
+                        className="inline-flex max-w-full items-center gap-2 border border-border/60 bg-background/40 px-3 py-2 text-left transition-colors hover:border-accent-tertiary hover:text-accent-tertiary"
+                      >
+                        <span className="shrink-0 text-[10px] font-mono uppercase tracking-[0.15em] text-accent-tertiary/80">
+                          {`0${index + 1}`}
+                        </span>
+                        <span className="line-clamp-1 text-sm">
+                          {blog.title}
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : null}
 
             {selectedTags.length > 0 ? (
               <div className="mt-3 flex flex-wrap gap-2">

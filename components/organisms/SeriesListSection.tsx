@@ -3,12 +3,12 @@
 import { useMemo, useState } from "react";
 import { BookOpenText, Search, SlidersHorizontal } from "lucide-react";
 import { PageHeader } from "@/components/molecules/PageHeader";
-import { FeaturedSeriesRow } from "@/components/molecules/FeaturedSeriesRow";
 import { SeriesCard } from "@/components/molecules/SeriesCard";
 import { SeriesCatalogItem, SeriesCatalogSection as SeriesCatalogSectionType } from "@/types";
 import { PageTransition } from "@/components/atoms/PageTransition";
 import { SeriesCategoryChips } from "@/components/molecules/SeriesCategoryChips";
 import { Button } from "@/components/atoms/Button";
+import Link from "next/link";
 
 interface SeriesListSectionProps {
   catalog: SeriesCatalogSectionType[];
@@ -247,18 +247,41 @@ export function SeriesListSection({ catalog }: SeriesListSectionProps) {
                 </span>
               )}
             </div>
+
+            {showGuidedPicks ? (
+              <div className="border border-border/50 bg-card/10 px-4 py-4 cyber-chamfer-sm">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="space-y-1">
+                    <span className="block text-[10px] font-mono uppercase tracking-[0.2em] text-accent-secondary">
+                      Start Here
+                    </span>
+                    <span className="block text-xs text-muted-foreground">
+                      Strong starting tracks for common goals before you narrow the catalog.
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {guidedPickItems.map((series, index) => (
+                      <Link
+                        key={series.seriesSlug}
+                        href={`/series/${series.seriesSlug}`}
+                        className="inline-flex max-w-full items-center gap-2 border border-border/60 bg-background/40 px-3 py-2 text-left transition-colors hover:border-accent-secondary hover:text-accent-secondary"
+                      >
+                        <span className="shrink-0 text-[10px] font-mono uppercase tracking-[0.15em] text-accent-secondary/80">
+                          {`0${index + 1}`}
+                        </span>
+                        <span className="line-clamp-1 text-sm">
+                          {series.seriesTitle}
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
 
         <div className="mt-8 space-y-8 md:mt-10">
-          {showGuidedPicks ? (
-            <FeaturedSeriesRow
-              items={guidedPickItems}
-              title="Start Here"
-              description="Curated entry points for common goals. Use these picks when you want a strong starting track without scanning the whole catalog first."
-            />
-          ) : null}
-
           <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_260px]">
             <section className="space-y-6">
               <div className="space-y-2">
