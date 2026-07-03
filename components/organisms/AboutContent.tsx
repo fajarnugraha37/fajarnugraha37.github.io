@@ -52,7 +52,7 @@ export function AboutContent() {
                   Start Here
                 </p>
                 <p className="mt-2 text-sm font-medium text-foreground transition-colors group-hover:text-current">
-                  Contact for collaboration or technical discussions
+                  Contact me for work, questions, or just to say hi
                 </p>
               </Link>
               <Link
