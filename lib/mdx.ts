@@ -169,18 +169,54 @@ function escapeInlineGenericTypeSyntax(segment: string) {
   return result;
 }
 
+function escapeInlineTagLikeSyntax(segment: string) {
+  return segment.replace(/<\/?[A-Za-z][^>\n]*?>/g, (match) =>
+    match.replace(/</g, "&lt;").replace(/>/g, "&gt;")
+  );
+}
+
+function escapeInlineTemplateSyntax(segment: string) {
+  return segment.replace(/{{[\s\S]*?}}/g, (match) =>
+    match
+      .replace(/{/g, "&#123;")
+      .replace(/}/g, "&#125;")
+  );
+}
+
+function escapeInlineHtmlCommentSyntax(segment: string) {
+  return segment.replace(/<!--[\s\S]*?-->/g, (match) =>
+    match.replace(/</g, "&lt;").replace(/>/g, "&gt;")
+  );
+}
+
 export function normalizeMdxSource(rawContent: string) {
   const lines = rawContent.split("\n");
-  let inCodeFence = false;
+  let activeFence: { marker: "`" | "~"; length: number } | null = null;
 
   return lines
     .map((line) => {
-      if (/^\s*```/.test(line)) {
-        inCodeFence = !inCodeFence;
-        return line;
-      }
+      const trimmedLine = line.trimStart();
 
-      if (inCodeFence) {
+      if (!activeFence) {
+        const openingFence = trimmedLine.match(/^([`~]{3,})([^`]*)$/);
+        if (openingFence) {
+          activeFence = {
+            marker: openingFence[1][0] as "`" | "~",
+            length: openingFence[1].length,
+          };
+          return line;
+        }
+      } else {
+        const closingFencePattern =
+          activeFence.marker === "`"
+            ? new RegExp(`^\\\`{${activeFence.length},}\\s*$`)
+            : new RegExp(`^~{${activeFence.length},}\\s*$`);
+
+        if (closingFencePattern.test(trimmedLine)) {
+          activeFence = null;
+          return line;
+        }
+
         return line;
       }
 
@@ -189,8 +225,14 @@ export function normalizeMdxSource(rawContent: string) {
         .map((segment) =>
           segment.startsWith("`") && segment.endsWith("`")
             ? segment
-            : escapeInlineGenericTypeSyntax(
-                escapeAmbiguousComparatorText(segment)
+            : escapeInlineHtmlCommentSyntax(
+                escapeInlineTemplateSyntax(
+                  escapeInlineTagLikeSyntax(
+                    escapeInlineGenericTypeSyntax(
+                      escapeAmbiguousComparatorText(segment)
+                    )
+                  )
+                )
               )
         )
         .join("");

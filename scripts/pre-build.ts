@@ -760,11 +760,17 @@ async function buildCompiledMdxCaches(
     const changed = changedContent.get(entry.fileName);
     const raw = changed?.raw || (await fs.readFile(path.join(BLOGS_DIR, entry.fileName), "utf8"));
     const content = changed?.content || parseContentFrontmatter(raw).content;
-    const cacheEntry = await buildCompiledMdxCacheEntry({
-      title: entry.title,
-      content,
-      fingerprint: entry.fingerprint,
-    });
+    let cacheEntry;
+    try {
+      cacheEntry = await buildCompiledMdxCacheEntry({
+        title: entry.title,
+        content,
+        fingerprint: entry.fingerprint,
+      });
+    } catch (error) {
+      console.error(`Failed compiling blog MDX: ${path.join(BLOGS_DIR, entry.fileName)}`);
+      throw error;
+    }
 
     await ensureCompiledMdxCacheDirectory(cachePath);
     await writeJsonIfChanged(cachePath, cacheEntry);
@@ -789,11 +795,19 @@ async function buildCompiledMdxCaches(
         "utf8",
       );
       const { content } = parseContentFrontmatter(raw);
-      const cacheEntry = await buildCompiledMdxCacheEntry({
-        title: part.title,
-        content,
-        fingerprint: part.fingerprint,
-      });
+      let cacheEntry;
+      try {
+        cacheEntry = await buildCompiledMdxCacheEntry({
+          title: part.title,
+          content,
+          fingerprint: part.fingerprint,
+        });
+      } catch (error) {
+        console.error(
+          `Failed compiling series MDX: ${path.join(SERIES_DIR, seriesEntry.directorySlug, part.fileName)}`,
+        );
+        throw error;
+      }
 
       await ensureCompiledMdxCacheDirectory(cachePath);
       await writeJsonIfChanged(cachePath, cacheEntry);
