@@ -35,7 +35,7 @@ export async function buildCompiledMdxCacheEntry({
   fingerprint: string;
 }): Promise<CompiledMdxCacheEntry> {
   const normalizedSource = normalizeMdxSource(content);
-  const compiled = await serialize(normalizedSource, mdxSerializeOptions, true);
+  const compiled = await serialize(normalizedSource, mdxSerializeOptions, false);
 
   return {
     version: COMPILED_MDX_CACHE_VERSION,
