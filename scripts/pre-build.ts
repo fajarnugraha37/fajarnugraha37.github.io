@@ -20,6 +20,7 @@ import {
   buildCompiledMdxCacheEntry,
   ensureCompiledMdxCacheDirectory,
 } from "../lib/compiled-mdx-cache";
+import { toggleContentRoutePages } from "./content-route-pages";
 
 const BLOGS_DIR = path.join(process.cwd(), "content", "blogs");
 const SERIES_DIR = path.join(process.cwd(), "content", "series");
@@ -830,6 +831,7 @@ async function run() {
 
   const isWriteMode = process.env.NEXT_PUBLIC_APP_MODE === "write";
   await toggleApiRoutes(isWriteMode);
+  await toggleContentRoutePages(isWriteMode);
 
   const [{ index: blogIndex, changedContent }, seriesIndex] = await Promise.all([
     buildBlogIndex(),
