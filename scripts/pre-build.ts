@@ -20,11 +20,16 @@ import {
   buildCompiledMdxCacheEntry,
   ensureCompiledMdxCacheDirectory,
 } from "../lib/compiled-mdx-cache";
+import {
+  SERIES_SECTIONS_PATH,
+  getSeriesContentDirectory,
+  getSeriesDomainManifestPaths,
+  loadAggregatedSeriesManifest,
+} from "../lib/series-manifest";
 import { toggleContentRoutePages } from "./content-route-pages";
 
 const BLOGS_DIR = path.join(process.cwd(), "content", "blogs");
 const SERIES_DIR = path.join(process.cwd(), "content", "series");
-const SERIES_MANIFEST_PATH = path.join(SERIES_DIR, "manifest.json");
 const EMBEDDINGS_FILE = path.join(CONTENT_CACHE_DIR, "embeddings.json");
 const ASSETS_INDEX_META_FILE = path.join(CONTENT_CACHE_DIR, "assets-index-meta.json");
 const API_DIR = path.join(process.cwd(), "app", "api");
@@ -482,46 +487,44 @@ async function buildBlogIndex() {
 async function buildSeriesIndex() {
   const previousIndex = await readJsonFile<SeriesIndexData>(SERIES_INDEX_PATH);
   const previousEntries = new Map(
-    (previousIndex?.entries || []).map((entry) => [entry.directorySlug, entry]),
+    (previousIndex?.entries || []).map((entry) => [entry.sourcePath, entry]),
   );
-
-  let manifestRaw = '{"sections":[],"series":[]}';
-  try {
-    manifestRaw = await fs.readFile(SERIES_MANIFEST_PATH, "utf8");
-  } catch {
-    // fall back to empty manifest
-  }
-
-  const manifestHash = hashContent(manifestRaw);
-  const parsedManifest = JSON.parse(manifestRaw) as { series?: Array<{ slug: string }> };
-  const manifestSlugs = new Set((parsedManifest.series || []).map((entry) => entry.slug));
-
-  let directoryNames: string[] = [];
-  try {
-    directoryNames = (await fs.readdir(SERIES_DIR, { withFileTypes: true }))
-      .filter((entry) => entry.isDirectory())
-      .map((entry) => entry.name)
-      .sort((left, right) => left.localeCompare(right));
-  } catch {
-    directoryNames = [];
-  }
+  const manifest = loadAggregatedSeriesManifest();
+  const manifestFiles = [SERIES_SECTIONS_PATH, ...getSeriesDomainManifestPaths()];
+  const manifestRaw = await Promise.all(
+    manifestFiles.map(async (filePath) => {
+      try {
+        const raw = await fs.readFile(filePath, "utf8");
+        return `${toRepoRelativePath(filePath)}\n${raw}`;
+      } catch {
+        return `${toRepoRelativePath(filePath)}\n`;
+      }
+    }),
+  );
+  const manifestHash = hashContent(manifestRaw.join("\n---\n"));
 
   const manifestChanged = previousIndex?.manifestHash !== manifestHash;
   const entries: SeriesIndexEntry[] = [];
 
-  for (const directorySlug of directoryNames) {
-    const seriesDirectory = path.join(SERIES_DIR, directorySlug);
-    const previousEntry = previousEntries.get(directorySlug);
+  for (const seriesSource of [...manifest.series].sort((left, right) =>
+    left.sourcePath.localeCompare(right.sourcePath),
+  )) {
+    const seriesDirectory = getSeriesContentDirectory(seriesSource.sourcePath);
+    const previousEntry = previousEntries.get(seriesSource.sourcePath);
     const previousParts = new Map(
       (previousEntry?.parts || []).map((part) => [part.fileName, part]),
     );
+
+    if (!(await fs.stat(seriesDirectory).then(() => true).catch(() => false))) {
+      throw new Error(`Missing series directory for manifest entry: ${seriesSource.sourcePath}`);
+    }
 
     const fileNames = (await fs.readdir(seriesDirectory))
       .filter((fileName) => fileName.endsWith(".mdx"))
       .sort((left, right) => left.localeCompare(right));
 
     if (fileNames.length === 0) {
-      continue;
+      throw new Error(`Series directory has no MDX parts: ${seriesSource.sourcePath}`);
     }
 
     const rawParts: SeriesIndexPartEntry[] = [];
@@ -537,18 +540,12 @@ async function buildSeriesIndex() {
         continue;
       }
 
-      console.log(`Indexing series part ${directorySlug}/${fileName}`);
+      console.log(`Indexing series part ${seriesSource.sourcePath}/${fileName}`);
       const raw = await fs.readFile(fullPath, "utf8");
       const { data, content } = parseContentFrontmatter(raw);
       const frontmatter = data as SeriesFrontmatter;
       const slug = fileName.replace(/\.mdx$/, "");
       const order = extractOrder(slug, frontmatter.order);
-      const publicSeriesSlug = resolvePublicSeriesSlug(
-        directorySlug,
-        slug,
-        frontmatter.series,
-        manifestSlugs,
-      );
 
       rawParts.push({
         fileName,
@@ -562,12 +559,12 @@ async function buildSeriesIndex() {
         stats: calculateContentStats(content),
         order,
         partTitle: frontmatter.partTitle,
-        seriesSlug: publicSeriesSlug,
+        seriesSlug: seriesSource.slug,
         seriesTitle: frontmatter.seriesTitle || "",
       });
     }
 
-    const inferredTitle = inferSeriesTitle(directorySlug, fileNames);
+    const inferredTitle = inferSeriesTitle(seriesSource.directorySlug, fileNames);
     const parts = rawParts
       .map((part) => ({
         ...part,
@@ -577,9 +574,8 @@ async function buildSeriesIndex() {
 
     const firstPart = parts[0];
     const latestPart = parts[parts.length - 1];
-    const publicSlug = firstPart.seriesSlug || directorySlug;
     const summary = {
-      seriesSlug: publicSlug,
+      seriesSlug: seriesSource.slug,
       seriesTitle: firstPart.seriesTitle,
       description:
         firstPart.description || `Structured learning track for ${firstPart.seriesTitle}.`,
@@ -592,8 +588,10 @@ async function buildSeriesIndex() {
     };
 
     entries.push({
-      directorySlug,
-      publicSlug,
+      domainId: seriesSource.domainId,
+      sourcePath: seriesSource.sourcePath,
+      directorySlug: seriesSource.directorySlug,
+      publicSlug: seriesSource.slug,
       summary,
       parts,
     });
@@ -792,7 +790,7 @@ async function buildCompiledMdxCaches(
       }
 
       const raw = await fs.readFile(
-        path.join(SERIES_DIR, seriesEntry.directorySlug, part.fileName),
+        path.join(SERIES_DIR, seriesEntry.sourcePath, part.fileName),
         "utf8",
       );
       const { content } = parseContentFrontmatter(raw);
@@ -805,7 +803,7 @@ async function buildCompiledMdxCaches(
         });
       } catch (error) {
         console.error(
-          `Failed compiling series MDX: ${path.join(SERIES_DIR, seriesEntry.directorySlug, part.fileName)}`,
+          `Failed compiling series MDX: ${path.join(SERIES_DIR, seriesEntry.sourcePath, part.fileName)}`,
         );
         throw error;
       }

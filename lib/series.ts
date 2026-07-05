@@ -4,8 +4,6 @@ import {
   SeriesCatalogItem,
   SeriesCatalogSection,
   SeriesDetail,
-  SeriesManifestEntry,
-  SeriesManifestPhase,
   SeriesManifestSection,
   SeriesPart,
   SeriesPartSummary,
@@ -19,9 +17,13 @@ import {
 import { calculateContentStats } from "@/lib/mdx";
 import { parseContentFrontmatter } from "@/lib/frontmatter";
 import { buildSeriesOverviewPhases } from "@/lib/series-navigation";
-
-const seriesRootDirectory = path.join(process.cwd(), "content", "series");
-const seriesManifestPath = path.join(seriesRootDirectory, "manifest.json");
+import {
+  getSeriesContentDirectory,
+  getSeriesSourceMaps,
+  loadAggregatedSeriesManifest,
+  type AggregatedSeriesManifest,
+  type ResolvedSeriesSource,
+} from "@/lib/series-manifest";
 
 interface SeriesFrontmatter {
   title?: string;
@@ -34,28 +36,32 @@ interface SeriesFrontmatter {
   partTitle?: string;
 }
 
-interface SeriesDirectoryEntry {
-  directorySlug: string;
-  publicSlug: string;
-}
-
 interface SeriesResolvedSummary extends SeriesSummary {
+  domainId: string;
   directorySlug: string;
-}
-
-interface SeriesManifestData {
-  sections: SeriesManifestSection[];
-  series: SeriesManifestEntry[];
+  sourcePath: string;
 }
 
 const seriesPartSummariesCache = new Map<string, SeriesPartSummary[]>();
 const seriesPartCache = new Map<string, SeriesPart>();
-const seriesManifestCache: { value: SeriesManifestData | null } = { value: null };
-const seriesDirectoryNamesCache: { value: string[] | null } = { value: null };
-const seriesDirectoryEntriesCache: { value: SeriesDirectoryEntry[] | null } = { value: null };
+const seriesManifestCache: { value: AggregatedSeriesManifest | null } = { value: null };
 const resolvedSeriesCache: { value: SeriesResolvedSummary[] | null } = { value: null };
 const seriesDetailCache = new Map<string, SeriesDetail | null>();
 const seriesIndexCache: { value: SeriesIndexData | null | undefined } = { value: undefined };
+
+function isUsableSeriesIndex(index: SeriesIndexData | null) {
+  if (!index || !Array.isArray(index.entries) || index.entries.length === 0) {
+    return false;
+  }
+
+  return index.entries.every((entry) => {
+    if (!entry.publicSlug || !entry.directorySlug || !entry.sourcePath) {
+      return false;
+    }
+
+    return fs.existsSync(getSeriesContentDirectory(entry.sourcePath));
+  });
+}
 
 function loadSeriesIndex() {
   if (seriesIndexCache.value !== undefined) {
@@ -69,7 +75,8 @@ function loadSeriesIndex() {
     }
 
     const raw = fs.readFileSync(SERIES_INDEX_PATH, "utf8");
-    seriesIndexCache.value = JSON.parse(raw) as SeriesIndexData;
+    const parsed = JSON.parse(raw) as SeriesIndexData;
+    seriesIndexCache.value = isUsableSeriesIndex(parsed) ? parsed : null;
     return seriesIndexCache.value;
   } catch {
     seriesIndexCache.value = null;
@@ -86,19 +93,6 @@ function stripIndexedSeriesPart({
   return part;
 }
 
-function findSeriesIndexEntry(seriesSlug: string) {
-  const seriesIndex = loadSeriesIndex();
-  if (!seriesIndex) {
-    return null;
-  }
-
-  return (
-    seriesIndex.entries.find(
-      (entry) => entry.directorySlug === seriesSlug || entry.publicSlug === seriesSlug,
-    ) || null
-  );
-}
-
 function normalizeDate(value: SeriesFrontmatter["date"]) {
   if (!value) {
     return "";
@@ -109,17 +103,6 @@ function normalizeDate(value: SeriesFrontmatter["date"]) {
   }
 
   return String(value);
-}
-
-function ensureSeriesRootExists() {
-  return fs.existsSync(seriesRootDirectory);
-}
-
-function slugify(input: string) {
-  return input
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
 }
 
 function toTitleCase(input: string) {
@@ -155,31 +138,6 @@ function extractOrder(fileSlug: string, frontmatterOrder?: number | string) {
   return Number.MAX_SAFE_INTEGER;
 }
 
-function inferPublicSeriesSlug(directorySlug: string, fileSlug: string) {
-  const prefix = fileSlug.split("-part-")[0]?.trim().replace(/[-_]+$/, "");
-  return prefix || directorySlug;
-}
-
-function resolvePublicSeriesSlug(
-  directorySlug: string,
-  fileSlug: string,
-  frontmatterSeries?: string,
-) {
-  const inferredSeriesSlug = inferPublicSeriesSlug(directorySlug, fileSlug);
-  const manifest = getSeriesManifest();
-  const manifestSlugs = new Set(manifest.series.map((entry) => entry.slug));
-
-  if (manifestSlugs.has(inferredSeriesSlug)) {
-    return inferredSeriesSlug;
-  }
-
-  if (frontmatterSeries && manifestSlugs.has(frontmatterSeries)) {
-    return frontmatterSeries;
-  }
-
-  return frontmatterSeries || inferredSeriesSlug;
-}
-
 function inferSeriesTitle(seriesSlug: string, parts: string[]) {
   const commonPrefix = parts[0]
     ?.split("-part-")[0]
@@ -196,41 +154,6 @@ function inferSeriesTitle(seriesSlug: string, parts: string[]) {
   return toTitleCase(seriesSlug);
 }
 
-function normalizeManifestPhases(value: unknown): SeriesManifestPhase[] | undefined {
-  if (!Array.isArray(value)) {
-    return undefined;
-  }
-
-  const phases = value
-    .map((phase) => {
-      if (!phase || typeof phase !== "object") {
-        return null;
-      }
-
-      const candidate = phase as Partial<SeriesManifestPhase>;
-      if (
-        typeof candidate.id !== "string" ||
-        typeof candidate.title !== "string" ||
-        typeof candidate.fromOrder !== "number" ||
-        typeof candidate.toOrder !== "number"
-      ) {
-        return null;
-      }
-
-      return {
-        id: candidate.id,
-        title: candidate.title,
-        subtitle: candidate.subtitle,
-        description: candidate.description,
-        fromOrder: candidate.fromOrder,
-        toOrder: candidate.toOrder,
-      } satisfies SeriesManifestPhase;
-    })
-    .filter((phase): phase is SeriesManifestPhase => phase !== null);
-
-  return phases.length > 0 ? phases : undefined;
-}
-
 function resolveLatestDate(parts: SeriesPartSummary[]) {
   const validDates = parts
     .map((part) => part.date)
@@ -240,14 +163,74 @@ function resolveLatestDate(parts: SeriesPartSummary[]) {
   return validDates[0] || "";
 }
 
-function readSeriesPartSummary(seriesSlug: string, fileName: string): SeriesPartSummary {
-  const fullPath = path.join(seriesRootDirectory, seriesSlug, fileName);
+function getSeriesManifest() {
+  if (seriesManifestCache.value) {
+    return seriesManifestCache.value;
+  }
+
+  const manifest = loadAggregatedSeriesManifest();
+  seriesManifestCache.value = manifest;
+  return manifest;
+}
+
+function findSeriesIndexEntry(seriesSlug: string) {
+  const seriesIndex = loadSeriesIndex();
+  if (!seriesIndex) {
+    return null;
+  }
+
+  return (
+    seriesIndex.entries.find(
+      (entry) =>
+        entry.directorySlug === seriesSlug ||
+        entry.publicSlug === seriesSlug ||
+        entry.sourcePath === seriesSlug,
+    ) || null
+  );
+}
+
+function getManifestEntryForSeries(
+  seriesSlug: string,
+  directorySlug?: string,
+  sourcePath?: string,
+) {
+  const { bySlug, byDirectorySlug, bySourcePath } = getSeriesSourceMaps(getSeriesManifest());
+
+  return (
+    bySlug.get(seriesSlug) ||
+    (sourcePath ? bySourcePath.get(sourcePath) : undefined) ||
+    (directorySlug ? byDirectorySlug.get(directorySlug) : undefined) ||
+    null
+  );
+}
+
+function resolveSeriesSource(seriesSlug: string): ResolvedSeriesSource | null {
+  const manifestEntry = getManifestEntryForSeries(seriesSlug);
+  if (manifestEntry) {
+    return manifestEntry;
+  }
+
+  const indexedEntry = findSeriesIndexEntry(seriesSlug);
+  if (!indexedEntry) {
+    return null;
+  }
+
+  return (
+    getManifestEntryForSeries(
+      indexedEntry.publicSlug,
+      indexedEntry.directorySlug,
+      indexedEntry.sourcePath,
+    ) || null
+  );
+}
+
+function readSeriesPartSummary(source: ResolvedSeriesSource, fileName: string): SeriesPartSummary {
+  const fullPath = path.join(getSeriesContentDirectory(source.sourcePath), fileName);
   const fileContents = fs.readFileSync(fullPath, "utf8");
   const { data, content } = parseContentFrontmatter(fileContents);
   const frontmatter = data as SeriesFrontmatter;
   const slug = fileName.replace(/\.mdx$/, "");
   const order = extractOrder(slug, frontmatter.order);
-  const publicSeriesSlug = resolvePublicSeriesSlug(seriesSlug, slug, frontmatter.series);
 
   return {
     slug,
@@ -258,19 +241,18 @@ function readSeriesPartSummary(seriesSlug: string, fileName: string): SeriesPart
     stats: calculateContentStats(content),
     order,
     partTitle: frontmatter.partTitle,
-    seriesSlug: publicSeriesSlug,
+    seriesSlug: source.slug,
     seriesTitle: frontmatter.seriesTitle || "",
   };
 }
 
-function readSeriesPart(seriesSlug: string, fileName: string): SeriesPart {
-  const fullPath = path.join(seriesRootDirectory, seriesSlug, fileName);
+function readSeriesPart(source: ResolvedSeriesSource, fileName: string): SeriesPart {
+  const fullPath = path.join(getSeriesContentDirectory(source.sourcePath), fileName);
   const fileContents = fs.readFileSync(fullPath, "utf8");
   const { data, content } = parseContentFrontmatter(fileContents);
   const frontmatter = data as SeriesFrontmatter;
   const slug = fileName.replace(/\.mdx$/, "");
   const order = extractOrder(slug, frontmatter.order);
-  const publicSeriesSlug = resolvePublicSeriesSlug(seriesSlug, slug, frontmatter.series);
 
   return {
     slug,
@@ -281,100 +263,26 @@ function readSeriesPart(seriesSlug: string, fileName: string): SeriesPart {
     stats: calculateContentStats(content),
     order,
     partTitle: frontmatter.partTitle,
-    seriesSlug: publicSeriesSlug,
+    seriesSlug: source.slug,
     seriesTitle: frontmatter.seriesTitle || "",
     content,
   };
 }
 
-function getSeriesDirectoryNames() {
-  const seriesIndex = loadSeriesIndex();
-  if (seriesIndex) {
-    return seriesIndex.entries.map((entry) => entry.directorySlug);
-  }
-
-  if (seriesDirectoryNamesCache.value) {
-    return seriesDirectoryNamesCache.value;
-  }
-
-  if (!ensureSeriesRootExists()) {
-    return [];
-  }
-
-  const directoryNames = fs
-    .readdirSync(seriesRootDirectory, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => entry.name);
-
-  seriesDirectoryNamesCache.value = directoryNames;
-  return directoryNames;
-}
-
-function getSeriesDirectoryEntries(): SeriesDirectoryEntry[] {
-  const seriesIndex = loadSeriesIndex();
-  if (seriesIndex) {
-    return seriesIndex.entries.map((entry) => ({
-      directorySlug: entry.directorySlug,
-      publicSlug: entry.publicSlug,
-    }));
-  }
-
-  if (seriesDirectoryEntriesCache.value) {
-    return seriesDirectoryEntriesCache.value;
-  }
-
-  const entries = getSeriesDirectoryNames()
-    .map((directorySlug) => {
-      const parts = getSeriesPartSummaries(directorySlug);
-      if (parts.length === 0) {
-        return null;
-      }
-
-      return {
-        directorySlug,
-        publicSlug: parts[0].seriesSlug || directorySlug,
-      } satisfies SeriesDirectoryEntry;
-    })
-    .filter((entry): entry is SeriesDirectoryEntry => entry !== null);
-
-  seriesDirectoryEntriesCache.value = entries;
-  return entries;
-}
-
-function resolveSeriesDirectorySlug(seriesSlug: string) {
-  const seriesIndexEntry = findSeriesIndexEntry(seriesSlug);
-  if (seriesIndexEntry) {
-    return seriesIndexEntry.directorySlug;
-  }
-
-  const directMatch = getSeriesDirectoryNames().find((directorySlug) => directorySlug === seriesSlug);
-  if (directMatch) {
-    return directMatch;
-  }
-
-  const aliasMatch = getSeriesDirectoryEntries().find((entry) => entry.publicSlug === seriesSlug);
-  return aliasMatch?.directorySlug || null;
-}
-
-function getSeriesPartSummaries(seriesSlug: string): SeriesPartSummary[] {
-  const indexedEntry = findSeriesIndexEntry(seriesSlug);
-  if (indexedEntry) {
-    const cachedParts = seriesPartSummariesCache.get(indexedEntry.directorySlug);
-    if (cachedParts) {
-      return cachedParts;
-    }
-
-    const parts = indexedEntry.parts.map(stripIndexedSeriesPart);
-    seriesPartSummariesCache.set(indexedEntry.directorySlug, parts);
-    return parts;
-  }
-
-  const cachedParts = seriesPartSummariesCache.get(seriesSlug);
+function getSeriesPartSummariesForSource(source: ResolvedSeriesSource): SeriesPartSummary[] {
+  const cachedParts = seriesPartSummariesCache.get(source.sourcePath);
   if (cachedParts) {
     return cachedParts;
   }
 
-  const seriesDirectory = path.join(seriesRootDirectory, seriesSlug);
+  const indexedEntry = findSeriesIndexEntry(source.slug) || findSeriesIndexEntry(source.sourcePath);
+  if (indexedEntry) {
+    const parts = indexedEntry.parts.map(stripIndexedSeriesPart);
+    seriesPartSummariesCache.set(source.sourcePath, parts);
+    return parts;
+  }
+
+  const seriesDirectory = getSeriesContentDirectory(source.sourcePath);
   if (!fs.existsSync(seriesDirectory)) {
     return [];
   }
@@ -383,8 +291,8 @@ function getSeriesPartSummaries(seriesSlug: string): SeriesPartSummary[] {
     .readdirSync(seriesDirectory)
     .filter((fileName) => fileName.endsWith(".mdx"));
 
-  const rawParts = fileNames.map((fileName) => readSeriesPartSummary(seriesSlug, fileName));
-  const inferredTitle = inferSeriesTitle(seriesSlug, fileNames);
+  const rawParts = fileNames.map((fileName) => readSeriesPartSummary(source, fileName));
+  const inferredTitle = inferSeriesTitle(source.slug, fileNames);
 
   const parts = rawParts
     .map((part) => ({
@@ -393,47 +301,16 @@ function getSeriesPartSummaries(seriesSlug: string): SeriesPartSummary[] {
     }))
     .sort((left, right) => left.order - right.order);
 
-  seriesPartSummariesCache.set(seriesSlug, parts);
+  seriesPartSummariesCache.set(source.sourcePath, parts);
   return parts;
-}
-
-function getSeriesManifest(): SeriesManifestData {
-  if (seriesManifestCache.value) {
-    return seriesManifestCache.value;
-  }
-
-  try {
-    if (!fs.existsSync(seriesManifestPath)) {
-      const emptyManifest = { sections: [], series: [] };
-      seriesManifestCache.value = emptyManifest;
-      return emptyManifest;
-    }
-
-    const raw = fs.readFileSync(seriesManifestPath, "utf8");
-    const parsed = JSON.parse(raw) as Partial<SeriesManifestData>;
-
-    const manifest = {
-      sections: Array.isArray(parsed.sections) ? parsed.sections : [],
-      series: Array.isArray(parsed.series)
-        ? parsed.series.map((entry) => ({
-            ...entry,
-            phases: normalizeManifestPhases((entry as { phases?: unknown }).phases),
-          }))
-        : [],
-    };
-    seriesManifestCache.value = manifest;
-    return manifest;
-  } catch {
-    const emptyManifest = { sections: [], series: [] };
-    seriesManifestCache.value = emptyManifest;
-    return emptyManifest;
-  }
 }
 
 function getAllResolvedSeries(): SeriesResolvedSummary[] {
   const seriesIndex = loadSeriesIndex();
   if (seriesIndex) {
     return seriesIndex.entries.map((entry) => ({
+      domainId: entry.domainId,
+      sourcePath: entry.sourcePath,
       directorySlug: entry.directorySlug,
       ...entry.summary,
     }));
@@ -443,9 +320,9 @@ function getAllResolvedSeries(): SeriesResolvedSummary[] {
     return resolvedSeriesCache.value;
   }
 
-  const resolvedSeries = getSeriesDirectoryEntries()
-    .map(({ directorySlug, publicSlug }) => {
-      const parts = getSeriesPartSummaries(directorySlug);
+  const resolvedSeries = getSeriesManifest()
+    .series.map((source) => {
+      const parts = getSeriesPartSummariesForSource(source);
       if (parts.length === 0) {
         return null;
       }
@@ -457,8 +334,10 @@ function getAllResolvedSeries(): SeriesResolvedSummary[] {
       const latestPart = parts[parts.length - 1];
 
       return {
-        directorySlug,
-        seriesSlug: publicSlug,
+        domainId: source.domainId,
+        sourcePath: source.sourcePath,
+        directorySlug: source.directorySlug,
+        seriesSlug: source.slug,
         seriesTitle: firstPart.seriesTitle,
         description,
         tags,
@@ -477,7 +356,10 @@ function getAllResolvedSeries(): SeriesResolvedSummary[] {
 }
 
 export function getAllSeries(): SeriesSummary[] {
-  return getAllResolvedSeries().map(({ directorySlug: _directorySlug, ...series }) => series);
+  return getAllResolvedSeries().map(
+    ({ domainId: _domainId, directorySlug: _directorySlug, sourcePath: _sourcePath, ...series }) =>
+      series,
+  );
 }
 
 export function getSeriesSummaryBySlug(seriesSlug: string): SeriesSummary | null {
@@ -494,25 +376,28 @@ export function getSeriesSummaryBySlug(seriesSlug: string): SeriesSummary | null
     return null;
   }
 
-  const { directorySlug: _directorySlug, ...publicSummary } = summary;
+  const {
+    domainId: _domainId,
+    directorySlug: _directorySlug,
+    sourcePath: _sourcePath,
+    ...publicSummary
+  } = summary;
   return publicSummary;
 }
 
 export function getSeriesCatalog(): SeriesCatalogSection[] {
   const summaries = getAllResolvedSeries();
   const manifest = getSeriesManifest();
-  const manifestBySlug = new Map(manifest.series.map((entry) => [entry.slug, entry]));
   const sectionMetaById = new Map(manifest.sections.map((section) => [section.id, section]));
   const sections = [...manifest.sections];
-  const getManifestEntryForSeries = (seriesSlug: string, directorySlug?: string) =>
-    manifestBySlug.get(seriesSlug) || (directorySlug ? manifestBySlug.get(directorySlug) : undefined);
 
   if (!sectionMetaById.has("uncategorized")) {
     const fallbackSection: SeriesManifestSection = {
       id: "uncategorized",
       title: "More Series",
       subtitle: "Additional tracks not yet grouped in the primary catalog.",
-      description: "Series that exist in content but are not explicitly organized in the manifest yet.",
+      description:
+        "Series that exist in content but are not explicitly organized in the manifest yet.",
       order: 999,
     };
 
@@ -520,27 +405,40 @@ export function getSeriesCatalog(): SeriesCatalogSection[] {
     sectionMetaById.set(fallbackSection.id, fallbackSection);
   }
 
-  const catalogItems: SeriesCatalogItem[] = summaries.map((series) => {
-    const manifestEntry = getManifestEntryForSeries(series.seriesSlug, series.directorySlug);
-    const sectionId =
-      manifestEntry?.section && sectionMetaById.has(manifestEntry.section)
-        ? manifestEntry.section
-        : "uncategorized";
+  const catalogItems: SeriesCatalogItem[] = summaries
+    .map((series) => {
+      const manifestEntry = getManifestEntryForSeries(
+        series.seriesSlug,
+        series.directorySlug,
+        series.sourcePath,
+      );
+      const sectionId =
+        manifestEntry?.section && sectionMetaById.has(manifestEntry.section)
+          ? manifestEntry.section
+          : "uncategorized";
 
-    return {
-      ...series,
-      sectionId,
-      seriesOrder: manifestEntry?.order ?? 9999,
-      featured: manifestEntry?.featured ?? false,
-      featuredLabel: manifestEntry?.featuredLabel,
-    };
-  }).map(({ directorySlug: _directorySlug, ...series }) => series);
+      return {
+        ...series,
+        sectionId,
+        seriesOrder: manifestEntry?.order ?? 9999,
+        featured: manifestEntry?.featured ?? false,
+        featuredLabel: manifestEntry?.featuredLabel,
+      };
+    })
+    .map(
+      ({ domainId: _domainId, directorySlug: _directorySlug, sourcePath: _sourcePath, ...series }) =>
+        series,
+    );
 
   return sections
     .sort((left, right) => left.order - right.order)
     .map((section) => {
       const visibleItems = catalogItems
-        .filter((item) => item.sectionId === section.id && !getManifestEntryForSeries(item.seriesSlug)?.hidden)
+        .filter(
+          (item) =>
+            item.sectionId === section.id &&
+            !getManifestEntryForSeries(item.seriesSlug)?.hidden,
+        )
         .sort((left, right) => {
           if (left.seriesOrder !== right.seriesOrder) {
             return left.seriesOrder - right.seriesOrder;
@@ -576,10 +474,11 @@ export function getSeriesBySlug(seriesSlug: string): SeriesDetail | null {
 
   const indexedEntry = findSeriesIndexEntry(seriesSlug);
   if (indexedEntry) {
-    const manifest = getSeriesManifest();
-    const manifestEntry =
-      manifest.series.find((entry) => entry.slug === indexedEntry.publicSlug) ||
-      manifest.series.find((entry) => entry.slug === indexedEntry.directorySlug);
+    const manifestEntry = getManifestEntryForSeries(
+      indexedEntry.publicSlug,
+      indexedEntry.directorySlug,
+      indexedEntry.sourcePath,
+    );
     const parts = indexedEntry.parts.map(stripIndexedSeriesPart);
     const phases = buildSeriesOverviewPhases(parts, manifestEntry?.phases);
     const detail = {
@@ -591,30 +490,33 @@ export function getSeriesBySlug(seriesSlug: string): SeriesDetail | null {
     return detail;
   }
 
-  const directorySlug = resolveSeriesDirectorySlug(seriesSlug);
-  if (!directorySlug) {
+  const source = resolveSeriesSource(seriesSlug);
+  if (!source) {
     seriesDetailCache.set(seriesSlug, null);
     return null;
   }
 
-  const parts = getSeriesPartSummaries(directorySlug);
+  const parts = getSeriesPartSummariesForSource(source);
   if (parts.length === 0) {
     seriesDetailCache.set(seriesSlug, null);
     return null;
   }
 
-  const summary = getAllResolvedSeries().find((series) => series.seriesSlug === seriesSlug);
+  const summary = getAllResolvedSeries().find(
+    (series) => series.seriesSlug === source.slug || series.directorySlug === seriesSlug,
+  );
   if (!summary) {
     seriesDetailCache.set(seriesSlug, null);
     return null;
   }
 
-  const manifest = getSeriesManifest();
-  const manifestEntry =
-    manifest.series.find((entry) => entry.slug === seriesSlug) ||
-    manifest.series.find((entry) => entry.slug === directorySlug);
-  const phases = buildSeriesOverviewPhases(parts, manifestEntry?.phases);
-  const { directorySlug: _directorySlug, ...publicSummary } = summary;
+  const phases = buildSeriesOverviewPhases(parts, source.phases);
+  const {
+    domainId: _domainId,
+    directorySlug: _directorySlug,
+    sourcePath: _sourcePath,
+    ...publicSummary
+  } = summary;
   const detail = { summary: publicSummary, parts, phases };
   seriesDetailCache.set(seriesSlug, detail);
   return detail;
@@ -624,33 +526,33 @@ export function getSeriesPartSummaryBySlug(
   seriesSlug: string,
   partSlug: string,
 ): SeriesPartSummary | null {
-  const directorySlug = resolveSeriesDirectorySlug(seriesSlug);
-  if (!directorySlug) {
+  const source = resolveSeriesSource(seriesSlug);
+  if (!source) {
     return null;
   }
 
-  return getSeriesPartSummaries(directorySlug).find((part) => part.slug === partSlug) || null;
+  return getSeriesPartSummariesForSource(source).find((part) => part.slug === partSlug) || null;
 }
 
 export function getSeriesPart(seriesSlug: string, partSlug: string): SeriesPart | null {
-  const directorySlug = resolveSeriesDirectorySlug(seriesSlug);
-  if (!directorySlug) {
+  const source = resolveSeriesSource(seriesSlug);
+  if (!source) {
     return null;
   }
 
-  const cacheKey = `${directorySlug}:${partSlug}`;
+  const cacheKey = `${source.sourcePath}:${partSlug}`;
   const cachedPart = seriesPartCache.get(cacheKey);
   if (cachedPart) {
     return cachedPart;
   }
 
   const fileName = `${partSlug}.mdx`;
-  const fullPath = path.join(seriesRootDirectory, directorySlug, fileName);
+  const fullPath = path.join(getSeriesContentDirectory(source.sourcePath), fileName);
   if (!fs.existsSync(fullPath)) {
     return null;
   }
 
-  const part = readSeriesPart(directorySlug, fileName);
+  const part = readSeriesPart(source, fileName);
   seriesPartCache.set(cacheKey, part);
   return part;
 }
@@ -675,12 +577,17 @@ export function getAllSeriesPartParams() {
     );
   }
 
-  return getAllResolvedSeries().flatMap((series) =>
-    getSeriesPartSummaries(series.directorySlug).map((part) => ({
+  return getAllResolvedSeries().flatMap((series) => {
+    const source = resolveSeriesSource(series.seriesSlug);
+    if (!source) {
+      return [];
+    }
+
+    return getSeriesPartSummariesForSource(source).map((part) => ({
       seriesSlug: series.seriesSlug,
       partSlug: part.slug,
-    })),
-  );
+    }));
+  });
 }
 
 export function getAllSeriesPartEntries() {
@@ -695,11 +602,16 @@ export function getAllSeriesPartEntries() {
     );
   }
 
-  return getAllResolvedSeries().flatMap((series) =>
-    getSeriesPartSummaries(series.directorySlug).map((part) => ({
+  return getAllResolvedSeries().flatMap((series) => {
+    const source = resolveSeriesSource(series.seriesSlug);
+    if (!source) {
+      return [];
+    }
+
+    return getSeriesPartSummariesForSource(source).map((part) => ({
       seriesSlug: series.seriesSlug,
       partSlug: part.slug,
       date: part.date,
-    })),
-  );
+    }));
+  });
 }

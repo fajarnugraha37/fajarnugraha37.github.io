@@ -28,6 +28,8 @@ export interface SeriesIndexPartEntry extends SeriesPartSummary {
 }
 
 export interface SeriesIndexEntry {
+  domainId: string;
+  sourcePath: string;
   directorySlug: string;
   publicSlug: string;
   summary: SeriesSummary;

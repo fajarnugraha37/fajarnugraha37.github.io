@@ -99,14 +99,25 @@ export interface SeriesManifestSection {
   order: number;
 }
 
+export interface SeriesSectionsData {
+  sections: SeriesManifestSection[];
+}
+
 export interface SeriesManifestEntry {
   slug: string;
+  directory?: string;
+  domainId?: string;
+  sourcePath?: string;
   section: string;
   order: number;
   featured?: boolean;
   featuredLabel?: string;
   hidden?: boolean;
   phases?: SeriesManifestPhase[];
+}
+
+export interface SeriesDomainManifestData {
+  series: SeriesManifestEntry[];
 }
 
 export interface SeriesCatalogItem extends SeriesSummary {
