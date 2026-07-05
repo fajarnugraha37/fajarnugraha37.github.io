@@ -6,11 +6,15 @@ import type { MDXComponents } from "mdx/types";
 import { getSeriesPartCompiledMdx } from "../lib/compiled-mdx-cache";
 import { renderCompiledMdx } from "../lib/compiled-mdx-render";
 import { getSeriesGroupForPart, groupSeriesParts } from "../lib/series-navigation";
+<<<<<<< HEAD
 import {
   getAllSeriesSlugs,
   getSeriesBySlug,
   getSeriesCatalog,
 } from "../lib/series";
+=======
+import { getAllSeriesSlugs, getSeriesBySlug, getSeriesCatalog } from "../lib/series";
+>>>>>>> 07-optimize-mdx-rendering
 import type {
   SeriesCatalogSection,
   SeriesDetail,
@@ -18,7 +22,11 @@ import type {
   TocHeading,
 } from "../types";
 
+<<<<<<< HEAD
 const OUTPUT_DIR = path.join(process.cwd(), ".cache", "static-series-preview");
+=======
+const PREVIEW_OUTPUT_DIR = path.join(process.cwd(), ".cache", "static-series-preview");
+>>>>>>> 07-optimize-mdx-rendering
 
 const staticMdxComponents: MDXComponents = {
   pre: ({ children }) => <>{children}</>,
@@ -172,11 +180,14 @@ function getDocumentStyles() {
       border-color: rgba(101, 210, 255, 0.45);
       color: var(--accent);
     }
+<<<<<<< HEAD
     .grid-root {
       display: grid;
       grid-template-columns: 1fr;
       gap: 24px;
     }
+=======
+>>>>>>> 07-optimize-mdx-rendering
     .section-grid,
     .card-grid,
     .phase-grid,
@@ -184,7 +195,10 @@ function getDocumentStyles() {
       display: grid;
       gap: 16px;
     }
+<<<<<<< HEAD
     .section-card,
+=======
+>>>>>>> 07-optimize-mdx-rendering
     .series-card,
     .lesson-card,
     .phase-card {
@@ -295,8 +309,12 @@ function getDocumentStyles() {
       letter-spacing: 0.14em;
     }
     .toc-list,
+<<<<<<< HEAD
     .sidebar-list,
     .phase-list {
+=======
+    .sidebar-list {
+>>>>>>> 07-optimize-mdx-rendering
       display: grid;
       gap: 10px;
       padding: 0;
@@ -304,8 +322,12 @@ function getDocumentStyles() {
       list-style: none;
     }
     .sidebar-list a,
+<<<<<<< HEAD
     .toc-list a,
     .phase-list a {
+=======
+    .toc-list a {
+>>>>>>> 07-optimize-mdx-rendering
       display: block;
       padding: 10px 12px;
       border: 1px solid var(--border);
@@ -313,8 +335,12 @@ function getDocumentStyles() {
       color: var(--muted);
     }
     .sidebar-list a.active,
+<<<<<<< HEAD
     .toc-list a:hover,
     .phase-list a:hover {
+=======
+    .toc-list a:hover {
+>>>>>>> 07-optimize-mdx-rendering
       color: var(--text);
       border-color: rgba(101, 210, 255, 0.45);
     }
@@ -329,7 +355,10 @@ function getDocumentStyles() {
     }
     @media (min-width: 920px) {
       .page-shell { padding: 40px 24px 80px; }
+<<<<<<< HEAD
       .grid-root { gap: 28px; }
+=======
+>>>>>>> 07-optimize-mdx-rendering
       .section-grid { gap: 20px; }
       .card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .lesson-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -341,14 +370,24 @@ function getDocumentStyles() {
   `;
 }
 
+<<<<<<< HEAD
 function formatCount(value: number, label: string) {
   return `${value.toString().padStart(2, "0")} ${label}`;
 }
 
+=======
+>>>>>>> 07-optimize-mdx-rendering
 function formatDateLabel(value: string) {
   return value || "Undated";
 }
 
+<<<<<<< HEAD
+=======
+function formatCount(value: number, label: string) {
+  return `${value.toString().padStart(2, "0")} ${label}`;
+}
+
+>>>>>>> 07-optimize-mdx-rendering
 async function writeTextFile(filePath: string, content: string) {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   await fs.writeFile(filePath, content, "utf8");
@@ -379,12 +418,18 @@ function renderDocument({
 
 function renderCatalogIndex(sections: SeriesCatalogSection[]) {
   return renderDocument({
+<<<<<<< HEAD
     title: "Static Series Preview",
     description: "Standalone static preview for series catalog and lesson pages.",
+=======
+    title: "Series",
+    description: "Structured learning series.",
+>>>>>>> 07-optimize-mdx-rendering
     children: (
       <main className="page-shell stack">
         <section className="hero">
           <div className="eyebrow">
+<<<<<<< HEAD
             <span className="pill accent">Stage 2 Preview</span>
             <span className="pill">Static series shell</span>
           </div>
@@ -393,6 +438,15 @@ function renderCatalogIndex(sections: SeriesCatalogSection[]) {
             This preview mirrors the series information architecture in a standalone
             static output so we can compare size, readability, and navigation
             without cutting over the live Next routes yet.
+=======
+            <span className="pill accent">Series</span>
+            <span className="pill">Static export</span>
+          </div>
+          <h1>Structured Learning Tracks</h1>
+          <p className="lede">
+            Browse curated series, jump into a curriculum map, or go directly to
+            the newest lesson in a track.
+>>>>>>> 07-optimize-mdx-rendering
           </p>
         </section>
 
@@ -418,7 +472,11 @@ function renderCatalogIndex(sections: SeriesCatalogSection[]) {
                   {items.map((series) => (
                     <a
                       key={series.seriesSlug}
+<<<<<<< HEAD
                       href={`./series/${series.seriesSlug}/index.html`}
+=======
+                      href={`./${series.seriesSlug}/index.html`}
+>>>>>>> 07-optimize-mdx-rendering
                       className="series-card"
                     >
                       <div className="series-header">
@@ -430,9 +488,13 @@ function renderCatalogIndex(sections: SeriesCatalogSection[]) {
                       </div>
                       <p className="minor">{series.description}</p>
                       <div className="tag-row">
+<<<<<<< HEAD
                         <span className="pill accent">
                           {series.totalReadingTime} min total
                         </span>
+=======
+                        <span className="pill accent">{series.totalReadingTime} min total</span>
+>>>>>>> 07-optimize-mdx-rendering
                         <span className="pill">{formatDateLabel(series.lastUpdated)}</span>
                       </div>
                     </a>
@@ -449,21 +511,34 @@ function renderCatalogIndex(sections: SeriesCatalogSection[]) {
 
 function renderSeriesIndex(series: SeriesDetail) {
   return renderDocument({
+<<<<<<< HEAD
     title: `${series.summary.seriesTitle} | Static Preview`,
+=======
+    title: `${series.summary.seriesTitle} | Series`,
+>>>>>>> 07-optimize-mdx-rendering
     description: series.summary.description,
     children: (
       <main className="page-shell stack">
         <section className="hero">
           <div className="eyebrow">
+<<<<<<< HEAD
             <a href="../../index.html" className="link-chip">
               All Series
+=======
+            <a href="../index.html" className="link-chip">
+              All series
+>>>>>>> 07-optimize-mdx-rendering
             </a>
             <span className="pill accent">
               {formatCount(series.summary.totalParts, "lessons")}
             </span>
+<<<<<<< HEAD
             <span className="pill positive">
               {series.summary.totalReadingTime} min
             </span>
+=======
+            <span className="pill positive">{series.summary.totalReadingTime} min</span>
+>>>>>>> 07-optimize-mdx-rendering
           </div>
           <h1>{series.summary.seriesTitle}</h1>
           <p className="lede">{series.summary.description}</p>
@@ -495,9 +570,14 @@ function renderSeriesIndex(series: SeriesDetail) {
             <div key={phase.id} className="phase-card stack" style={{ gap: 14 }}>
               <div className="eyebrow">
                 <span className="pill accent">
+<<<<<<< HEAD
                   {phase.fromOrder.toString().padStart(2, "0")}–{phase.toOrder
                     .toString()
                     .padStart(2, "0")}
+=======
+                  {phase.fromOrder.toString().padStart(2, "0")}–
+                  {phase.toOrder.toString().padStart(2, "0")}
+>>>>>>> 07-optimize-mdx-rendering
                 </span>
                 <span>{formatCount(phase.totalParts, "lessons")}</span>
               </div>
@@ -520,16 +600,24 @@ function renderSeriesIndex(series: SeriesDetail) {
 
         <section className="panel stack">
           <div className="eyebrow">
+<<<<<<< HEAD
             <span className="pill">Curriculum Map</span>
+=======
+            <span className="pill">Curriculum map</span>
+>>>>>>> 07-optimize-mdx-rendering
             <span>{formatCount(series.parts.length, "lessons")}</span>
           </div>
           <div className="lesson-grid">
             {series.parts.map((part) => (
+<<<<<<< HEAD
               <a
                 key={part.slug}
                 href={`./${part.slug}/index.html`}
                 className="lesson-card"
               >
+=======
+              <a key={part.slug} href={`./${part.slug}/index.html`} className="lesson-card">
+>>>>>>> 07-optimize-mdx-rendering
                 <div className="lesson-header">
                   <div>
                     <div className="kicker">
@@ -576,16 +664,26 @@ function renderPartPage({
       <main className="page-shell stack">
         <section className="hero">
           <div className="eyebrow">
+<<<<<<< HEAD
             <a href="../../../index.html" className="link-chip">
               All Series
+=======
+            <a href="../../index.html" className="link-chip">
+              All series
+>>>>>>> 07-optimize-mdx-rendering
             </a>
             <a href="../index.html" className="link-chip">
               {part.seriesTitle}
             </a>
             <span className="pill accent">
+<<<<<<< HEAD
               Lesson {part.order.toString().padStart(2, "0")} / {series.parts.length
                 .toString()
                 .padStart(2, "0")}
+=======
+              Lesson {part.order.toString().padStart(2, "0")} /{" "}
+              {series.parts.length.toString().padStart(2, "0")}
+>>>>>>> 07-optimize-mdx-rendering
             </span>
           </div>
           <h1>{displayTitle}</h1>
@@ -652,7 +750,11 @@ function renderPartPage({
               </ul>
             ) : (
               <p className="empty-note">
+<<<<<<< HEAD
                 This lesson is compact, so the preview does not need a longer table of
+=======
+                This lesson is compact, so the page does not need a longer table of
+>>>>>>> 07-optimize-mdx-rendering
                 contents.
               </p>
             )}
@@ -663,6 +765,7 @@ function renderPartPage({
   });
 }
 
+<<<<<<< HEAD
 async function resetOutputDirectory() {
   const normalized = path.normalize(OUTPUT_DIR);
   const cacheRoot = path.normalize(path.join(process.cwd(), ".cache"));
@@ -677,12 +780,47 @@ async function resetOutputDirectory() {
 
 async function buildSeriesPreview() {
   await resetOutputDirectory();
+=======
+function isAllowedOutputDirectory(targetDir: string) {
+  const normalizedTarget = path.normalize(targetDir);
+  const allowedRoots = [
+    path.normalize(path.join(process.cwd(), ".cache")),
+    path.normalize(path.join(process.cwd(), "out")),
+  ];
+
+  return allowedRoots.some((root) => normalizedTarget.startsWith(root));
+}
+
+async function resetOutputDirectory(targetDir: string) {
+  if (!isAllowedOutputDirectory(targetDir)) {
+    throw new Error(`Refusing to reset unexpected output directory: ${targetDir}`);
+  }
+
+  await fs.rm(targetDir, { recursive: true, force: true });
+  await fs.mkdir(targetDir, { recursive: true });
+}
+
+export async function buildStaticSeriesOutput({
+  outputDir,
+  outputLabel,
+  writeSummary = true,
+}: {
+  outputDir: string;
+  outputLabel: string;
+  writeSummary?: boolean;
+}) {
+  await resetOutputDirectory(outputDir);
+>>>>>>> 07-optimize-mdx-rendering
 
   const catalog = getSeriesCatalog();
   const slugs = getAllSeriesSlugs();
   let renderedPartCount = 0;
 
+<<<<<<< HEAD
   await writeTextFile(path.join(OUTPUT_DIR, "index.html"), renderCatalogIndex(catalog));
+=======
+  await writeTextFile(path.join(outputDir, "index.html"), renderCatalogIndex(catalog));
+>>>>>>> 07-optimize-mdx-rendering
 
   for (const { seriesSlug } of slugs) {
     const series = getSeriesBySlug(seriesSlug);
@@ -690,10 +828,14 @@ async function buildSeriesPreview() {
       continue;
     }
 
+<<<<<<< HEAD
     await writeTextFile(
       path.join(OUTPUT_DIR, "series", seriesSlug, "index.html"),
       renderSeriesIndex(series),
     );
+=======
+    await writeTextFile(path.join(outputDir, seriesSlug, "index.html"), renderSeriesIndex(series));
+>>>>>>> 07-optimize-mdx-rendering
 
     for (const part of series.parts) {
       const compiledMdx = await getSeriesPartCompiledMdx(seriesSlug, part.slug);
@@ -718,14 +860,19 @@ async function buildSeriesPreview() {
         nextPart,
       });
 
+<<<<<<< HEAD
       await writeTextFile(
         path.join(OUTPUT_DIR, "series", seriesSlug, part.slug, "index.html"),
         html,
       );
+=======
+      await writeTextFile(path.join(outputDir, seriesSlug, part.slug, "index.html"), html);
+>>>>>>> 07-optimize-mdx-rendering
       renderedPartCount += 1;
     }
   }
 
+<<<<<<< HEAD
   await writeTextFile(
     path.join(OUTPUT_DIR, "summary.json"),
     JSON.stringify(
@@ -750,3 +897,37 @@ buildSeriesPreview().catch((error) => {
   console.error("Failed building static series preview:", error);
   process.exitCode = 1;
 });
+=======
+  if (writeSummary) {
+    await writeTextFile(
+      path.join(outputDir, "summary.json"),
+      JSON.stringify(
+        {
+          generatedAt: new Date().toISOString(),
+          totalSections: catalog.length,
+          totalSeries: slugs.length,
+          totalParts: renderedPartCount,
+          outputDir: path.relative(process.cwd(), outputDir).split(path.sep).join("/"),
+        },
+        null,
+        2,
+      ),
+    );
+  }
+
+  console.log(
+    `${outputLabel}: ${path.relative(process.cwd(), outputDir)} (${slugs.length} series / ${renderedPartCount} parts)`,
+  );
+}
+
+if (import.meta.main) {
+  buildStaticSeriesOutput({
+    outputDir: PREVIEW_OUTPUT_DIR,
+    outputLabel: "Static series preview ready",
+    writeSummary: true,
+  }).catch((error) => {
+    console.error("Failed building static series preview:", error);
+    process.exitCode = 1;
+  });
+}
+>>>>>>> 07-optimize-mdx-rendering
