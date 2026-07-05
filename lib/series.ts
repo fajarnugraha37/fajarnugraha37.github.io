@@ -49,9 +49,22 @@ const resolvedSeriesCache: { value: SeriesResolvedSummary[] | null } = { value: 
 const seriesDetailCache = new Map<string, SeriesDetail | null>();
 const seriesIndexCache: { value: SeriesIndexData | null | undefined } = { value: undefined };
 
-function isUsableSeriesIndex(index: SeriesIndexData | null) {
+function isUsableSeriesIndex(index: SeriesIndexData | null, manifest: AggregatedSeriesManifest) {
   if (!index || !Array.isArray(index.entries) || index.entries.length === 0) {
     return false;
+  }
+
+  const manifestSourcePaths = new Set(manifest.series.map((entry) => entry.sourcePath));
+  const indexedSourcePaths = new Set(index.entries.map((entry) => entry.sourcePath));
+
+  if (manifestSourcePaths.size !== indexedSourcePaths.size) {
+    return false;
+  }
+
+  for (const sourcePath of manifestSourcePaths) {
+    if (!indexedSourcePaths.has(sourcePath)) {
+      return false;
+    }
   }
 
   return index.entries.every((entry) => {
@@ -76,7 +89,7 @@ function loadSeriesIndex() {
 
     const raw = fs.readFileSync(SERIES_INDEX_PATH, "utf8");
     const parsed = JSON.parse(raw) as SeriesIndexData;
-    seriesIndexCache.value = isUsableSeriesIndex(parsed) ? parsed : null;
+    seriesIndexCache.value = isUsableSeriesIndex(parsed, getSeriesManifest()) ? parsed : null;
     return seriesIndexCache.value;
   } catch {
     seriesIndexCache.value = null;

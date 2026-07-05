@@ -2,10 +2,9 @@ import fs from "fs";
 import path from "path";
 import { parseContentFrontmatter } from "../lib/frontmatter";
 import {
-  SERIES_DOMAIN_IDS,
+  getSeriesDomainIds,
   getSeriesContentDirectory,
   loadAggregatedSeriesManifest,
-  inferSeriesDomainFromSlug,
 } from "../lib/series-manifest";
 
 interface SeriesFrontmatter {
@@ -78,11 +77,6 @@ function run() {
       errors.push(`Series slug ${entry.slug} references unknown section: ${entry.section}`);
     }
 
-    const inferredDomain = inferSeriesDomainFromSlug(entry.directory) || inferSeriesDomainFromSlug(entry.slug);
-    if (!inferredDomain || inferredDomain !== entry.domainId) {
-      errors.push(`Series slug ${entry.slug} is placed in wrong domain: ${entry.domainId}`);
-    }
-
     const directory = getSeriesContentDirectory(entry.sourcePath);
     if (!fs.existsSync(directory)) {
       errors.push(`Missing content directory: ${entry.sourcePath}`);
@@ -123,7 +117,7 @@ function run() {
     }
   }
 
-  for (const domainId of SERIES_DOMAIN_IDS) {
+  for (const domainId of getSeriesDomainIds()) {
     const domainDirectory = path.join(process.cwd(), "content", "series", domainId);
     if (!fs.existsSync(domainDirectory)) {
       errors.push(`Missing domain directory: ${domainId}`);

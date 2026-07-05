@@ -22,7 +22,7 @@ export const SERIES_DOMAIN_IDS = [
   "communication",
 ] as const;
 
-export type SeriesDomainId = (typeof SERIES_DOMAIN_IDS)[number];
+export type SeriesDomainId = string;
 
 export interface ResolvedSeriesSource extends SeriesManifestEntry {
   directory: string;
@@ -109,7 +109,7 @@ function readJsonFile<T>(filePath: string): T | null {
 }
 
 export function isSeriesDomainId(value: string): value is SeriesDomainId {
-  return SERIES_DOMAIN_IDS.includes(value as SeriesDomainId);
+  return getSeriesDomainIds().includes(value);
 }
 
 export function inferSeriesDomainFromSlug(slug: string): SeriesDomainId | null {
@@ -151,17 +151,28 @@ export function loadSeriesSections(): SeriesSectionsData {
   };
 }
 
-export function getSeriesDomainManifestPaths() {
+export function getSeriesDomainIds(): SeriesDomainId[] {
   if (!fs.existsSync(SERIES_ROOT_DIRECTORY)) {
     return [];
   }
 
   return fs
     .readdirSync(SERIES_ROOT_DIRECTORY, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory() && isSeriesDomainId(entry.name))
-    .map((entry) => path.join(SERIES_ROOT_DIRECTORY, entry.name, "manifest.json"))
-    .filter((manifestPath) => fs.existsSync(manifestPath))
+    .filter((entry) => {
+      if (!entry.isDirectory()) {
+        return false;
+      }
+
+      return fs.existsSync(path.join(SERIES_ROOT_DIRECTORY, entry.name, "manifest.json"));
+    })
+    .map((entry) => entry.name)
     .sort((left, right) => left.localeCompare(right));
+}
+
+export function getSeriesDomainManifestPaths() {
+  return getSeriesDomainIds().map((domainId) =>
+    path.join(SERIES_ROOT_DIRECTORY, domainId, "manifest.json"),
+  );
 }
 
 export function loadSeriesDomainManifest(
@@ -184,7 +195,7 @@ export function loadSeriesDomainManifest(
 
 export function loadAggregatedSeriesManifest(): AggregatedSeriesManifest {
   const sections = loadSeriesSections().sections;
-  const series = SERIES_DOMAIN_IDS.flatMap((domainId) => {
+  const series = getSeriesDomainIds().flatMap((domainId) => {
     const manifestPath = path.join(SERIES_ROOT_DIRECTORY, domainId, "manifest.json");
     if (!fs.existsSync(manifestPath)) {
       return [];
