@@ -3,11 +3,7 @@ import path from "path";
 
 const CACHE_DIR = path.join(process.cwd(), ".cache");
 const NEXT_SERIES_DIR = path.join(process.cwd(), "out", "series");
-<<<<<<< HEAD
-const PREVIEW_SERIES_DIR = path.join(process.cwd(), ".cache", "static-series-preview", "series");
-=======
 const PREVIEW_SERIES_DIR = path.join(process.cwd(), ".cache", "static-series-preview");
->>>>>>> 07-optimize-mdx-rendering
 const REPORT_JSON_PATH = path.join(CACHE_DIR, "series-output-comparison.json");
 const REPORT_MD_PATH = path.join(CACHE_DIR, "series-output-comparison.md");
 
@@ -99,19 +95,12 @@ function buildPerSeriesSummaries(files: FileStatEntry[]) {
   const groups = new Map<string, SeriesGroupSummary>();
 
   for (const file of files) {
-<<<<<<< HEAD
-    const [seriesSlug] = file.relativePath.split("/");
-    if (!seriesSlug) {
-      continue;
-    }
-=======
     const segments = file.relativePath.split("/");
     if (segments.length < 2) {
       continue;
     }
     const seriesSlug =
       segments[0] === "series" && segments.length >= 3 ? segments[1] : segments[0];
->>>>>>> 07-optimize-mdx-rendering
 
     const current = groups.get(seriesSlug) || {
       key: seriesSlug,

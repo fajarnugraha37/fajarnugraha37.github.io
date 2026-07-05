@@ -78,18 +78,11 @@ function buildPerSeriesSummaries(files: FileStatEntry[]) {
   const groups = new Map<string, SeriesGroupSummary>();
 
   for (const file of files) {
-<<<<<<< HEAD
-    const [seriesSlug] = file.relativePath.split("/");
-    if (!seriesSlug) {
-      continue;
-    }
-=======
     const segments = file.relativePath.split("/");
     if (segments.length < 2) {
       continue;
     }
     const [seriesSlug] = segments;
->>>>>>> 07-optimize-mdx-rendering
 
     const current = groups.get(seriesSlug) || {
       key: seriesSlug,
