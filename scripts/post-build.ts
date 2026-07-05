@@ -5,7 +5,6 @@ import { restoreContentRoutePages } from "./content-route-pages";
 
 const API_DIR = path.join(process.cwd(), "app/api");
 const OUT_DIR = path.join(process.cwd(), "out");
-
 async function getApiRoutes(dir: string): Promise<string[]> {
   try {
     const entries = await fs.readdir(dir, { withFileTypes: true });
@@ -28,11 +27,11 @@ async function getApiRoutes(dir: string): Promise<string[]> {
 
 async function run() {
   console.log("Starting post-build...");
-  const isWriteMode = process.env.NEXT_PUBLIC_APP_MODE === "write";
-  const postBuildMode = process.env.POST_BUILD_MODE || "full";
   let exportError: unknown = null;
 
   try {
+    const isWriteMode = process.env.NEXT_PUBLIC_APP_MODE === "write";
+    const postBuildMode = process.env.POST_BUILD_MODE || "full";
     if (!isWriteMode && postBuildMode === "full") {
       const outExists = await fs.stat(OUT_DIR).then(() => true).catch(() => false);
       if (outExists) {
@@ -43,40 +42,41 @@ async function run() {
       }
     }
   } catch (error) {
+    console.error("Failed to build static content outputs:", error);
     exportError = error;
-  } finally {
-    try {
-      const routePaths = await getApiRoutes(API_DIR);
+  }
 
-      for (const routePath of routePaths) {
-        const activePath = routePath.endsWith("_route.ts")
-          ? routePath.replace("_route.ts", "route.ts")
-          : routePath;
+  try {
+    const routePaths = await getApiRoutes(API_DIR);
 
-        const hiddenPath = activePath.replace("route.ts", "_route.ts");
+    for (const routePath of routePaths) {
+      const activePath = routePath.endsWith("_route.ts")
+        ? routePath.replace("_route.ts", "route.ts")
+        : routePath;
 
-        const activeExists = await fs.stat(activePath).then(() => true).catch(() => false);
-        const hiddenExists = await fs.stat(hiddenPath).then(() => true).catch(() => false);
+      const hiddenPath = activePath.replace("route.ts", "_route.ts");
 
-        if (hiddenExists && !activeExists) {
-          console.log(`Restoring ${hiddenPath} back to ${activePath}`);
-          await fs.rename(hiddenPath, activePath);
-        }
-      }
-    } catch (error) {
-      console.error("Failed to restore API routes:", error);
-      if (!exportError) {
-        exportError = error;
+      const activeExists = await fs.stat(activePath).then(() => true).catch(() => false);
+      const hiddenExists = await fs.stat(hiddenPath).then(() => true).catch(() => false);
+
+      if (hiddenExists && !activeExists) {
+        console.log(`Restoring ${hiddenPath} back to ${activePath}`);
+        await fs.rename(hiddenPath, activePath);
       }
     }
+  } catch (error) {
+    console.error("Failed to restore API routes:", error);
+    if (!exportError) {
+      exportError = error;
+    }
+  }
 
-    try {
-      await restoreContentRoutePages();
-    } catch (error) {
-      console.error("Failed to restore content route pages:", error);
-      if (!exportError) {
-        exportError = error;
-      }
+  try {
+    await restoreContentRoutePages();
+  } catch (error) {
+    console.error("Failed to restore content route pages:", error);
+    if (!exportError) {
+      exportError = error;
     }
   }
 

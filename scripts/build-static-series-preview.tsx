@@ -3,10 +3,14 @@ import path from "path";
 import React, { type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { MDXComponents } from "mdx/types";
+import { mdxComponents } from "../components/molecules/MDXComponents";
+import { SeriesPartContent } from "../components/organisms/SeriesPartContent";
+import { getSeriesPartAudioEntry } from "../lib/audio/read";
 import { getSeriesPartCompiledMdx } from "../lib/compiled-mdx-cache";
 import { renderCompiledMdx } from "../lib/compiled-mdx-render";
 import { getSeriesGroupForPart, groupSeriesParts } from "../lib/series-navigation";
 import { getAllSeriesSlugs, getSeriesBySlug, getSeriesCatalog } from "../lib/series";
+import { renderStaticAppShellDocument } from "./static-content-shell";
 import type {
   SeriesCatalogSection,
   SeriesDetail,
@@ -340,15 +344,28 @@ async function writeTextFile(filePath: string, content: string) {
   await fs.writeFile(filePath, content, "utf8");
 }
 
-function renderDocument({
+async function renderDocument({
   title,
   description,
   children,
+  shellOutputRoot,
 }: {
   title: string;
   description: string;
   children: ReactNode;
+  shellOutputRoot?: string;
 }) {
+  const contentHtml = renderToStaticMarkup(children);
+
+  if (shellOutputRoot) {
+    return renderStaticAppShellDocument({
+      outputRoot: shellOutputRoot,
+      title,
+      description,
+      contentHtml,
+    });
+  }
+
   return `<!DOCTYPE html>${renderToStaticMarkup(
     <html lang="en">
       <head>
@@ -363,10 +380,14 @@ function renderDocument({
   )}`;
 }
 
-function renderCatalogIndex(sections: SeriesCatalogSection[]) {
+async function renderCatalogIndex(
+  sections: SeriesCatalogSection[],
+  shellOutputRoot?: string,
+) {
   return renderDocument({
     title: "Series",
     description: "Structured learning series.",
+    shellOutputRoot,
     children: (
       <main className="page-shell stack">
         <section className="hero">
@@ -430,10 +451,11 @@ function renderCatalogIndex(sections: SeriesCatalogSection[]) {
   });
 }
 
-function renderSeriesIndex(series: SeriesDetail) {
+async function renderSeriesIndex(series: SeriesDetail, shellOutputRoot?: string) {
   return renderDocument({
     title: `${series.summary.seriesTitle} | Series`,
     description: series.summary.description,
+    shellOutputRoot,
     children: (
       <main className="page-shell stack">
         <section className="hero">
@@ -525,13 +547,15 @@ function renderSeriesIndex(series: SeriesDetail) {
   });
 }
 
-function renderPartPage({
+async function renderPartPage({
   series,
   part,
   headings,
   article,
   previousPart,
   nextPart,
+  audioEntry,
+  shellOutputRoot,
 }: {
   series: SeriesDetail;
   part: SeriesPartSummary;
@@ -539,101 +563,24 @@ function renderPartPage({
   article: ReactNode;
   previousPart: SeriesPartSummary | null;
   nextPart: SeriesPartSummary | null;
+  audioEntry: ReturnType<typeof getSeriesPartAudioEntry>;
+  shellOutputRoot?: string;
 }) {
-  const groups = groupSeriesParts(series.parts);
-  const currentGroup = getSeriesGroupForPart(groups, part.slug);
-  const displayTitle = part.partTitle || part.title;
-  const visibleHeadings = headings.slice(1);
-
   return renderDocument({
-    title: `${displayTitle} | ${part.seriesTitle}`,
+    title: `${part.partTitle || part.title} | ${part.seriesTitle}`,
     description: part.description,
+    shellOutputRoot,
     children: (
-      <main className="page-shell stack">
-        <section className="hero">
-          <div className="eyebrow">
-            <a href="../../index.html" className="link-chip">
-              All series
-            </a>
-            <a href="../index.html" className="link-chip">
-              {part.seriesTitle}
-            </a>
-            <span className="pill accent">
-              Lesson {part.order.toString().padStart(2, "0")} /{" "}
-              {series.parts.length.toString().padStart(2, "0")}
-            </span>
-          </div>
-          <h1>{displayTitle}</h1>
-          {displayTitle !== part.title ? <p className="minor">{part.title}</p> : null}
-          <p className="lede">{part.description}</p>
-          <div className="meta">
-            {currentGroup ? <span className="pill">{currentGroup.title}</span> : null}
-            <span className="pill positive">{part.stats.readingTime} min read</span>
-            <span className="pill">{part.stats.wordCount} words</span>
-            <span className="pill">{formatDateLabel(part.date)}</span>
-          </div>
-          <div className="cta-row">
-            {previousPart ? (
-              <a href={`../${previousPart.slug}/index.html`} className="link-chip">
-                Previous lesson
-              </a>
-            ) : null}
-            {nextPart ? (
-              <a href={`../${nextPart.slug}/index.html`} className="link-chip primary">
-                Next lesson
-              </a>
-            ) : null}
-            <a href="../index.html" className="link-chip">
-              Open curriculum map
-            </a>
-          </div>
-        </section>
-
-        <section className="split-layout">
-          <aside className="sidebar-panel stack" style={{ gap: 16 }}>
-            <div className="list-label">
-              <span className="pill accent">Learning Flow</span>
-            </div>
-            <ul className="sidebar-list">
-              {series.parts.map((seriesPart) => (
-                <li key={seriesPart.slug}>
-                  <a
-                    href={`../${seriesPart.slug}/index.html`}
-                    className={seriesPart.slug === part.slug ? "active" : undefined}
-                  >
-                    {seriesPart.order.toString().padStart(2, "0")} —{" "}
-                    {seriesPart.partTitle || seriesPart.title}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </aside>
-
-          <article className="article-shell">
-            <div className="article-prose">{article}</div>
-          </article>
-
-          <aside className="toc-panel stack" style={{ gap: 16 }}>
-            <div className="list-label">
-              <span className="pill accent">On This Page</span>
-            </div>
-            {visibleHeadings.length > 0 ? (
-              <ul className="toc-list">
-                {visibleHeadings.map((heading) => (
-                  <li key={heading.id}>
-                    <a href={`#${heading.id}`}>{heading.text}</a>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="empty-note">
-                This lesson is compact, so the page does not need a longer table of
-                contents.
-              </p>
-            )}
-          </aside>
-        </section>
-      </main>
+      <SeriesPartContent
+        part={part}
+        headings={headings}
+        parts={series.parts}
+        previousPart={previousPart}
+        nextPart={nextPart}
+        audioEntry={audioEntry}
+      >
+        {article}
+      </SeriesPartContent>
     ),
   });
 }
@@ -661,18 +608,35 @@ export async function buildStaticSeriesOutput({
   outputDir,
   outputLabel,
   writeSummary = true,
+  includeCatalogIndex = true,
+  includeSeriesIndex = true,
+  resetOutputDir = true,
+  shellOutputRoot,
 }: {
   outputDir: string;
   outputLabel: string;
   writeSummary?: boolean;
+  includeCatalogIndex?: boolean;
+  includeSeriesIndex?: boolean;
+  resetOutputDir?: boolean;
+  shellOutputRoot?: string;
 }) {
-  await resetOutputDirectory(outputDir);
+  if (resetOutputDir) {
+    await resetOutputDirectory(outputDir);
+  } else {
+    await fs.mkdir(outputDir, { recursive: true });
+  }
 
   const catalog = getSeriesCatalog();
   const slugs = getAllSeriesSlugs();
   let renderedPartCount = 0;
 
-  await writeTextFile(path.join(outputDir, "index.html"), renderCatalogIndex(catalog));
+  if (includeCatalogIndex) {
+    await writeTextFile(
+      path.join(outputDir, "index.html"),
+      await renderCatalogIndex(catalog, shellOutputRoot),
+    );
+  }
 
   for (const { seriesSlug } of slugs) {
     const series = getSeriesBySlug(seriesSlug);
@@ -680,7 +644,12 @@ export async function buildStaticSeriesOutput({
       continue;
     }
 
-    await writeTextFile(path.join(outputDir, seriesSlug, "index.html"), renderSeriesIndex(series));
+    if (includeSeriesIndex) {
+      await writeTextFile(
+        path.join(outputDir, seriesSlug, "index.html"),
+        await renderSeriesIndex(series, shellOutputRoot),
+      );
+    }
 
     for (const part of series.parts) {
       const compiledMdx = await getSeriesPartCompiledMdx(seriesSlug, part.slug);
@@ -695,14 +664,17 @@ export async function buildStaticSeriesOutput({
           ? series.parts[currentIndex + 1]
           : null;
 
-      const article = renderCompiledMdx(compiledMdx, staticMdxComponents);
-      const html = renderPartPage({
+      const audioEntry = getSeriesPartAudioEntry(seriesSlug, part.slug);
+      const article = renderCompiledMdx(compiledMdx, mdxComponents);
+      const html = await renderPartPage({
         series,
         part,
         headings: compiledMdx.headings,
         article,
         previousPart,
         nextPart,
+        audioEntry,
+        shellOutputRoot,
       });
 
       await writeTextFile(path.join(outputDir, seriesSlug, part.slug, "index.html"), html);

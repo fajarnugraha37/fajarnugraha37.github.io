@@ -13,11 +13,18 @@ export async function buildStaticContentOutputs({
     outputDir: path.join(outDir, "blogs"),
     outputLabel: "Live static blogs export ready",
     writeSummary,
+    includeIndexPage: false,
+    resetOutputDir: false,
+    shellOutputRoot: outDir,
   });
 
   await buildStaticSeriesOutput({
     outputDir: path.join(outDir, "series"),
     outputLabel: "Live static series export ready",
     writeSummary,
+    includeCatalogIndex: false,
+    includeSeriesIndex: false,
+    resetOutputDir: false,
+    shellOutputRoot: outDir,
   });
 }

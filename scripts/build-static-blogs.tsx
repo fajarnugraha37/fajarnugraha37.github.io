@@ -4,6 +4,9 @@ import React, { type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { MDXComponents } from "mdx/types";
 import relations from "../public/relations.json";
+import { BlogContent } from "../components/organisms/BlogContent";
+import { mdxComponents } from "../components/molecules/MDXComponents";
+import { getBlogAudioEntry } from "../lib/audio/read";
 import { getBlogCompiledMdx } from "../lib/compiled-mdx-cache";
 import { renderCompiledMdx } from "../lib/compiled-mdx-render";
 import {
@@ -12,6 +15,7 @@ import {
   getBlogsBySlugs,
   getSortedBlogsData,
 } from "../lib/mdx";
+import { renderStaticAppShellDocument } from "./static-content-shell";
 import type { Blog, BlogMetadata, TocHeading } from "../types";
 
 const PREVIEW_OUTPUT_DIR = path.join(process.cwd(), ".cache", "static-blogs-preview");
@@ -287,15 +291,28 @@ function getDocumentStyles() {
   `;
 }
 
-function renderDocument({
+async function renderDocument({
   title,
   description,
   children,
+  shellOutputRoot,
 }: {
   title: string;
   description: string;
   children: ReactNode;
+  shellOutputRoot?: string;
 }) {
+  const contentHtml = renderToStaticMarkup(children);
+
+  if (shellOutputRoot) {
+    return renderStaticAppShellDocument({
+      outputRoot: shellOutputRoot,
+      title,
+      description,
+      contentHtml,
+    });
+  }
+
   return `<!DOCTYPE html>${renderToStaticMarkup(
     <html lang="en">
       <head>
@@ -334,10 +351,11 @@ async function resetOutputDirectory(targetDir: string) {
   await fs.mkdir(targetDir, { recursive: true });
 }
 
-function renderBlogsIndex(blogs: BlogMetadata[]) {
+async function renderBlogsIndex(blogs: BlogMetadata[], shellOutputRoot?: string) {
   return renderDocument({
     title: "Logs",
     description: "Technical deep-dives, system notes, and engineering logs.",
+    shellOutputRoot,
     children: (
       <main className="page-shell stack">
         <section className="hero">
@@ -383,77 +401,34 @@ function renderBlogsIndex(blogs: BlogMetadata[]) {
   });
 }
 
-function renderBlogPost({
+async function renderBlogPost({
   post,
   headings,
   article,
   relatedPosts,
+  audioEntry,
+  shellOutputRoot,
 }: {
   post: Blog;
   headings: TocHeading[];
   article: ReactNode;
   relatedPosts: BlogMetadata[];
+  audioEntry: ReturnType<typeof getBlogAudioEntry>;
+  shellOutputRoot?: string;
 }) {
   return renderDocument({
     title: `${post.title} | Logs`,
     description: post.description,
+    shellOutputRoot,
     children: (
-      <main className="page-shell stack">
-        <section className="hero">
-          <div className="eyebrow">
-            <a href="../index.html" className="link-chip">
-              All logs
-            </a>
-            <span className="pill accent">{post.date}</span>
-            <span className="pill secondary">{post.stats.readingTime} min read</span>
-            <span className="pill">{post.stats.wordCount} words</span>
-          </div>
-          <h1>{post.title}</h1>
-          <p className="lede">{post.description}</p>
-          <div className="tag-row">
-            {post.tags.map((tag) => (
-              <span key={tag} className="tag">
-                #{tag}
-              </span>
-            ))}
-          </div>
-        </section>
-
-        <section className="split-layout">
-          <aside className="toc-panel stack" style={{ gap: 16 }}>
-            <div className="list-label">
-              <span className="pill accent">Structure</span>
-            </div>
-            <ul className="toc-list">
-              {headings.map((heading) => (
-                <li key={heading.id}>
-                  <a href={`#${heading.id}`}>{heading.text}</a>
-                </li>
-              ))}
-            </ul>
-          </aside>
-
-          <article className="article-shell">
-            <div className="article-prose">{article}</div>
-          </article>
-
-          <aside className="related-panel stack" style={{ gap: 16 }}>
-            <div className="list-label">
-              <span className="pill secondary">Telemetry Feed</span>
-            </div>
-            <ul className="related-list">
-              {relatedPosts.map((relatedPost) => (
-                <li key={relatedPost.slug}>
-                  <a href={`../${relatedPost.slug}/index.html`}>
-                    <strong>{relatedPost.title}</strong>
-                    <div className="minor">{relatedPost.description}</div>
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </aside>
-        </section>
-      </main>
+      <BlogContent
+        postData={post}
+        headings={headings}
+        relatedPosts={relatedPosts}
+        audioEntry={audioEntry}
+      >
+        {article}
+      </BlogContent>
     ),
   });
 }
@@ -462,32 +437,50 @@ export async function buildStaticBlogsOutput({
   outputDir,
   outputLabel,
   writeSummary = true,
+  includeIndexPage = true,
+  resetOutputDir = true,
+  shellOutputRoot,
 }: {
   outputDir: string;
   outputLabel: string;
   writeSummary?: boolean;
+  includeIndexPage?: boolean;
+  resetOutputDir?: boolean;
+  shellOutputRoot?: string;
 }) {
-  await resetOutputDirectory(outputDir);
+  if (resetOutputDir) {
+    await resetOutputDirectory(outputDir);
+  } else {
+    await fs.mkdir(outputDir, { recursive: true });
+  }
 
   const blogs = getSortedBlogsData();
   const slugs = getAllBlogSlugs();
 
-  await writeTextFile(path.join(outputDir, "index.html"), renderBlogsIndex(blogs));
+  if (includeIndexPage) {
+    await writeTextFile(
+      path.join(outputDir, "index.html"),
+      await renderBlogsIndex(blogs, shellOutputRoot),
+    );
+  }
 
   for (const { slug } of slugs) {
     const post = await getBlogData(slug);
     const compiledMdx = await getBlogCompiledMdx(slug);
     const relatedSlugs = (relations as Record<string, { slug: string }[]>)[slug] || [];
     const relatedPosts = getBlogsBySlugs(relatedSlugs.map((entry) => entry.slug));
-    const article = renderCompiledMdx(compiledMdx, staticMdxComponents);
+    const audioEntry = getBlogAudioEntry(slug);
+    const article = renderCompiledMdx(compiledMdx, mdxComponents);
 
     await writeTextFile(
       path.join(outputDir, slug, "index.html"),
-      renderBlogPost({
+      await renderBlogPost({
         post,
         headings: compiledMdx.headings,
         article,
         relatedPosts,
+        audioEntry,
+        shellOutputRoot,
       }),
     );
   }

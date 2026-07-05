@@ -19,6 +19,33 @@ function runCommand(command: string, args: string[], extraEnv?: Record<string, s
   return result.status ?? 1;
 }
 
+function ensureSafeWorkspacePath(targetPath: string) {
+  const resolvedTargetPath = path.resolve(targetPath);
+  const resolvedWorkspacePath = path.resolve(process.cwd());
+
+  if (
+    resolvedTargetPath !== resolvedWorkspacePath &&
+    !resolvedTargetPath.startsWith(`${resolvedWorkspacePath}${path.sep}`)
+  ) {
+    throw new Error(`Refusing to operate outside workspace: ${resolvedTargetPath}`);
+  }
+
+  return resolvedTargetPath;
+}
+
+function cleanOutputDirectories() {
+  const pathsToClean = ["out"].map((relativePath) =>
+    ensureSafeWorkspacePath(path.join(process.cwd(), relativePath)),
+  );
+
+  for (const targetPath of pathsToClean) {
+    if (fs.existsSync(targetPath)) {
+      fs.rmSync(targetPath, { recursive: true, force: true });
+      console.log(`Cleaned ${path.relative(process.cwd(), targetPath)}`);
+    }
+  }
+}
+
 function resolveNextCommand(bunBinary: string) {
   const candidatePaths = [
     path.join(process.cwd(), "node_modules", ".bin", process.platform === "win32" ? "next.exe" : "next"),
@@ -52,6 +79,8 @@ async function run() {
   let buildAttempted = false;
 
   try {
+    cleanOutputDirectories();
+
     const preBuildStatus = runCommand(bunBinary, ["run", "scripts/pre-build.ts"]);
     if (preBuildStatus !== 0) {
       buildStatus = preBuildStatus;

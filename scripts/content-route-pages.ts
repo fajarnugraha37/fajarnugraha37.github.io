@@ -8,17 +8,14 @@ interface ContentRoutePageGroup {
 
 export const CONTENT_ROUTE_PAGE_GROUPS: ContentRoutePageGroup[] = [
   {
-    label: "series pages",
+    label: "series part pages",
     paths: [
-      path.join(process.cwd(), "app", "series", "page.tsx"),
-      path.join(process.cwd(), "app", "series", "[seriesSlug]", "page.tsx"),
       path.join(process.cwd(), "app", "series", "[seriesSlug]", "[partSlug]", "page.tsx"),
     ],
   },
   {
-    label: "blog pages",
+    label: "blog detail pages",
     paths: [
-      path.join(process.cwd(), "app", "blogs", "page.tsx"),
       path.join(process.cwd(), "app", "blogs", "[slug]", "page.tsx"),
     ],
   },
