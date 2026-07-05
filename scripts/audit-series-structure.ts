@@ -4,6 +4,7 @@ import { parseContentFrontmatter } from "../lib/frontmatter";
 import {
   getSeriesDomainIds,
   getSeriesContentDirectory,
+  loadSeriesSections,
   loadAggregatedSeriesManifest,
 } from "../lib/series-manifest";
 
@@ -55,10 +56,12 @@ function fail(errors: string[]) {
 
 function run() {
   const manifest = loadAggregatedSeriesManifest();
+  const sections = loadSeriesSections();
   const errors: string[] = [];
   const slugSet = new Set<string>();
   const sourcePathSet = new Set<string>();
   const validSectionIds = new Set(manifest.sections.map((section) => section.id));
+  const expectedBucketIds = new Set(sections.sections.map((section) => section.id));
 
   for (const entry of manifest.series) {
     if (slugSet.has(entry.slug)) {
@@ -75,6 +78,12 @@ function run() {
 
     if (!validSectionIds.has(entry.section)) {
       errors.push(`Series slug ${entry.slug} references unknown section: ${entry.section}`);
+    }
+
+    if (entry.section !== entry.domainId) {
+      errors.push(
+        `Series slug ${entry.slug} section mismatch: manifest section "${entry.section}" must equal bucket "${entry.domainId}"`,
+      );
     }
 
     const directory = getSeriesContentDirectory(entry.sourcePath);
@@ -139,6 +148,18 @@ function run() {
       if (!expectedDirectories.has(directory)) {
         errors.push(`Unregistered series directory: ${domainId}/${directory}`);
       }
+    }
+  }
+
+  const actualBucketIds = fs
+    .readdirSync(path.join(process.cwd(), "content", "series"), { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .filter((entry) => fs.existsSync(path.join(process.cwd(), "content", "series", entry.name, "manifest.json")))
+    .map((entry) => entry.name);
+
+  for (const bucketId of actualBucketIds) {
+    if (!expectedBucketIds.has(bucketId)) {
+      errors.push(`Bucket exists without matching section id: ${bucketId}`);
     }
   }
 

@@ -1,13 +1,12 @@
+import { existsSync } from "fs";
 import fs from "fs/promises";
 import path from "path";
 import { parseContentFrontmatter } from "../lib/frontmatter";
 import {
   LEGACY_SERIES_MANIFEST_PATH,
-  SERIES_DOMAIN_IDS,
   SERIES_ROOT_DIRECTORY,
   SERIES_SECTIONS_PATH,
   inferSeriesDomainFromSlug,
-  type SeriesDomainId,
 } from "../lib/series-manifest";
 import type { SeriesManifestEntry, SeriesManifestSection } from "../types";
 
@@ -72,7 +71,7 @@ async function scanLegacySeriesDirectories(): Promise<LegacySeriesDirectoryInfo[
   const directoryLocations = entries
     .filter((entry) => entry.isDirectory())
     .flatMap((entry) => {
-      if (SERIES_DOMAIN_IDS.includes(entry.name as SeriesDomainId)) {
+      if (existsSync(path.join(SERIES_ROOT_DIRECTORY, entry.name, "manifest.json"))) {
         return fs
           .readdir(path.join(SERIES_ROOT_DIRECTORY, entry.name), { withFileTypes: true })
           .then((children) =>
@@ -255,11 +254,13 @@ async function run() {
   const sections = {
     sections: Array.isArray(legacyManifest.sections) ? legacyManifest.sections : [],
   };
-  const grouped = new Map<SeriesDomainId, SeriesManifestEntry[]>();
+  const grouped = new Map<string, SeriesManifestEntry[]>();
   const usedManifestSlugs = new Set<string>();
 
-  for (const domainId of SERIES_DOMAIN_IDS) {
-    grouped.set(domainId, []);
+  for (const section of legacyManifest.sections || []) {
+    if (typeof section.id === "string" && section.id.length > 0) {
+      grouped.set(section.id, []);
+    }
   }
 
   for (const directoryInfo of directories) {
@@ -282,16 +283,19 @@ async function run() {
     const entry = manifestEntries[0];
     usedManifestSlugs.add(entry.slug);
 
-    const domainId =
+    const bucketId =
+      (typeof entry.section === "string" && entry.section.length > 0 ? entry.section : null) ||
       inferSeriesDomainFromSlug(directoryInfo.directorySlug) ||
       inferSeriesDomainFromSlug(directoryInfo.publicSlug);
-    if (!domainId) {
-      throw new Error(`Unable to infer domain for series slug: ${directoryInfo.publicSlug}`);
+    if (!bucketId) {
+      throw new Error(`Unable to infer bucket for series slug: ${directoryInfo.publicSlug}`);
     }
 
-    grouped
-      .get(domainId)
-      ?.push(cleanManifestEntry(entry, directoryInfo.directorySlug));
+    if (!grouped.has(bucketId)) {
+      grouped.set(bucketId, []);
+    }
+
+    grouped.get(bucketId)?.push(cleanManifestEntry(entry, directoryInfo.directorySlug));
   }
 
   for (const [slug, entries] of manifestEntriesBySlug.entries()) {
@@ -302,11 +306,11 @@ async function run() {
 
   await fs.writeFile(SERIES_SECTIONS_PATH, JSON.stringify(sections, null, 2));
 
-  for (const domainId of SERIES_DOMAIN_IDS) {
-    const domainDirectory = path.join(SERIES_ROOT_DIRECTORY, domainId);
+  for (const bucketId of [...grouped.keys()]) {
+    const domainDirectory = path.join(SERIES_ROOT_DIRECTORY, bucketId);
     const domainManifestPath = path.join(domainDirectory, "manifest.json");
     await fs.mkdir(domainDirectory, { recursive: true });
-    const series = (grouped.get(domainId) || []).sort((left, right) => {
+    const series = (grouped.get(bucketId) || []).sort((left, right) => {
       if (left.order !== right.order) {
         return left.order - right.order;
       }
@@ -321,15 +325,21 @@ async function run() {
   }
 
   for (const directoryInfo of directories) {
-    const domainId =
+    const manifestEntries = resolveManifestEntriesForDirectory(
+      directoryInfo,
+      manifestEntriesBySlug,
+    );
+    const entry = manifestEntries[0];
+    const bucketId =
+      (typeof entry?.section === "string" && entry.section.length > 0 ? entry.section : null) ||
       inferSeriesDomainFromSlug(directoryInfo.directorySlug) ||
       inferSeriesDomainFromSlug(directoryInfo.publicSlug);
-    if (!domainId) {
-      throw new Error(`Unable to infer domain for series slug: ${directoryInfo.publicSlug}`);
+    if (!bucketId) {
+      throw new Error(`Unable to infer bucket for series slug: ${directoryInfo.publicSlug}`);
     }
 
-    const targetPath = path.join(SERIES_ROOT_DIRECTORY, domainId, directoryInfo.directorySlug);
-    const targetRelativePath = `${domainId}/${directoryInfo.directorySlug}`;
+    const targetPath = path.join(SERIES_ROOT_DIRECTORY, bucketId, directoryInfo.directorySlug);
+    const targetRelativePath = `${bucketId}/${directoryInfo.directorySlug}`;
 
     if (directoryInfo.currentPath === targetPath) {
       continue;

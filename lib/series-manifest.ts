@@ -109,7 +109,7 @@ function readJsonFile<T>(filePath: string): T | null {
 }
 
 export function isSeriesDomainId(value: string): value is SeriesDomainId {
-  return getSeriesDomainIds().includes(value);
+  return loadSeriesSections().sections.some((section) => section.id === value);
 }
 
 export function inferSeriesDomainFromSlug(slug: string): SeriesDomainId | null {
@@ -152,21 +152,11 @@ export function loadSeriesSections(): SeriesSectionsData {
 }
 
 export function getSeriesDomainIds(): SeriesDomainId[] {
-  if (!fs.existsSync(SERIES_ROOT_DIRECTORY)) {
-    return [];
-  }
-
-  return fs
-    .readdirSync(SERIES_ROOT_DIRECTORY, { withFileTypes: true })
-    .filter((entry) => {
-      if (!entry.isDirectory()) {
-        return false;
-      }
-
-      return fs.existsSync(path.join(SERIES_ROOT_DIRECTORY, entry.name, "manifest.json"));
-    })
-    .map((entry) => entry.name)
-    .sort((left, right) => left.localeCompare(right));
+  return loadSeriesSections()
+    .sections.map((section) => section.id)
+    .filter((sectionId) =>
+      fs.existsSync(path.join(SERIES_ROOT_DIRECTORY, sectionId, "manifest.json")),
+    );
 }
 
 export function getSeriesDomainManifestPaths() {
