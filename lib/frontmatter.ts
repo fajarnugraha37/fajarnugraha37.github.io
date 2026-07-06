@@ -40,14 +40,17 @@ function normalizeTextFrontmatterLine(line: string) {
 export function parseContentFrontmatter(fileContents: string) {
   const normalized = fileContents
     .replace(/\r\n/g, "\n")
-    .replace(/^(-{3,})\n([\s\S]*?)\n\1/, (fullMatch, _delimiter: string, frontmatterBlock: string) => {
-      const normalizedBlock = frontmatterBlock
-        .split("\n")
-        .map((line) => normalizeTextFrontmatterLine(line))
-        .join("\n");
+    .replace(
+      /^-{3,}\n([\s\S]*?)\n-{3,}(?=\n|$)/,
+      (_fullMatch, frontmatterBlock: string) => {
+        const normalizedBlock = frontmatterBlock
+          .split("\n")
+          .map((line) => normalizeTextFrontmatterLine(line))
+          .join("\n");
 
-      return `---\n${normalizedBlock}\n---`;
-    });
+        return `---\n${normalizedBlock}\n---`;
+      },
+    );
 
   return matter(normalized);
 }

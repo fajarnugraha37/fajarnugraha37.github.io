@@ -9,6 +9,7 @@ export const COMPILED_MDX_CACHE_DIR = path.join(CONTENT_CACHE_DIR, "compiled-mdx
 export const BLOG_COMPILED_MDX_CACHE_DIR = path.join(COMPILED_MDX_CACHE_DIR, "blogs");
 export const SERIES_COMPILED_MDX_CACHE_DIR = path.join(COMPILED_MDX_CACHE_DIR, "series");
 export const COMPILED_MDX_CACHE_VERSION = 5;
+export const SERIES_INDEX_FORMAT_VERSION = 2;
 
 export interface BlogIndexEntry extends BlogMetadata {
   fileName: string;
@@ -37,6 +38,7 @@ export interface SeriesIndexEntry {
 }
 
 export interface SeriesIndexData {
+  formatVersion: number;
   generatedAt: string;
   manifestHash: string;
   entries: SeriesIndexEntry[];

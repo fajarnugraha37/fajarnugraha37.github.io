@@ -10,6 +10,7 @@ import {
   SeriesSummary,
 } from "@/types";
 import {
+  SERIES_INDEX_FORMAT_VERSION,
   SERIES_INDEX_PATH,
   type SeriesIndexData,
   type SeriesIndexPartEntry,
@@ -50,7 +51,12 @@ const seriesDetailCache = new Map<string, SeriesDetail | null>();
 const seriesIndexCache: { value: SeriesIndexData | null | undefined } = { value: undefined };
 
 function isUsableSeriesIndex(index: SeriesIndexData | null, manifest: AggregatedSeriesManifest) {
-  if (!index || !Array.isArray(index.entries) || index.entries.length === 0) {
+  if (
+    !index ||
+    index.formatVersion !== SERIES_INDEX_FORMAT_VERSION ||
+    !Array.isArray(index.entries) ||
+    index.entries.length === 0
+  ) {
     return false;
   }
 

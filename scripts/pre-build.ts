@@ -7,6 +7,7 @@ import {
   BLOG_INDEX_PATH,
   COMPILED_MDX_CACHE_VERSION,
   CONTENT_CACHE_DIR,
+  SERIES_INDEX_FORMAT_VERSION,
   SERIES_INDEX_PATH,
   getBlogCompiledMdxCachePath,
   getSeriesCompiledMdxCachePath,
@@ -503,7 +504,9 @@ async function buildSeriesIndex() {
   );
   const manifestHash = hashContent(manifestRaw.join("\n---\n"));
 
-  const manifestChanged = previousIndex?.manifestHash !== manifestHash;
+  const manifestChanged =
+    previousIndex?.manifestHash !== manifestHash ||
+    previousIndex?.formatVersion !== SERIES_INDEX_FORMAT_VERSION;
   const entries: SeriesIndexEntry[] = [];
 
   for (const seriesSource of [...manifest.series].sort((left, right) =>
@@ -600,6 +603,7 @@ async function buildSeriesIndex() {
   entries.sort((left, right) => left.summary.seriesTitle.localeCompare(right.summary.seriesTitle));
 
   const entriesUnchanged =
+    previousIndex?.formatVersion === SERIES_INDEX_FORMAT_VERSION &&
     previousIndex?.manifestHash === manifestHash &&
     JSON.stringify(previousIndex.entries) === JSON.stringify(entries);
 
@@ -609,6 +613,7 @@ async function buildSeriesIndex() {
   }
 
   const nextIndex: SeriesIndexData = {
+    formatVersion: SERIES_INDEX_FORMAT_VERSION,
     generatedAt: new Date().toISOString(),
     manifestHash,
     entries,
