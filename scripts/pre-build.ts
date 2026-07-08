@@ -579,10 +579,15 @@ async function buildSeriesIndex() {
     const latestPart = parts[parts.length - 1];
     const summary = {
       seriesSlug: seriesSource.slug,
-      seriesTitle: firstPart.seriesTitle,
+      seriesTitle: seriesSource.title || firstPart.seriesTitle,
       description:
-        firstPart.description || `Structured learning track for ${firstPart.seriesTitle}.`,
-      tags: Array.from(new Set(parts.flatMap((part) => part.tags))).sort(),
+        seriesSource.description ||
+        firstPart.description ||
+        `Structured learning track for ${firstPart.seriesTitle}.`,
+      tags:
+        seriesSource.tags && seriesSource.tags.length > 0
+          ? seriesSource.tags
+          : Array.from(new Set(parts.flatMap((part) => part.tags))).sort(),
       totalParts: parts.length,
       totalReadingTime: parts.reduce((total, part) => total + part.stats.readingTime, 0),
       firstPartSlug: firstPart.slug,

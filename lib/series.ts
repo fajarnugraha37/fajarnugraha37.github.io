@@ -348,7 +348,9 @@ function getAllResolvedSeries(): SeriesResolvedSummary[] {
 
       const firstPart = parts[0];
       const description =
-        firstPart.description || `Structured learning track for ${firstPart.seriesTitle}.`;
+        source.description ||
+        firstPart.description ||
+        `Structured learning track for ${firstPart.seriesTitle}.`;
       const tags = Array.from(new Set(parts.flatMap((part) => part.tags))).sort();
       const latestPart = parts[parts.length - 1];
 
@@ -357,9 +359,9 @@ function getAllResolvedSeries(): SeriesResolvedSummary[] {
         sourcePath: source.sourcePath,
         directorySlug: source.directorySlug,
         seriesSlug: source.slug,
-        seriesTitle: firstPart.seriesTitle,
+        seriesTitle: source.title || firstPart.seriesTitle,
         description,
-        tags,
+        tags: source.tags && source.tags.length > 0 ? source.tags : tags,
         totalParts: parts.length,
         totalReadingTime: parts.reduce((total, part) => total + part.stats.readingTime, 0),
         firstPartSlug: firstPart.slug,

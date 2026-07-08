@@ -108,6 +108,9 @@ export interface SeriesManifestEntry {
   directory?: string;
   domainId?: string;
   sourcePath?: string;
+  title?: string;
+  description?: string;
+  tags?: string[];
   section: string;
   order: number;
   featured?: boolean;

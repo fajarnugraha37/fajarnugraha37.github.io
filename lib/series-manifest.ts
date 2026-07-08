@@ -96,6 +96,11 @@ function normalizeSeriesEntry(
     directory: entry.directory,
     directorySlug,
     sourcePath,
+    title: typeof entry.title === "string" ? entry.title : undefined,
+    description: typeof entry.description === "string" ? entry.description : undefined,
+    tags: Array.isArray(entry.tags)
+      ? entry.tags.filter((tag): tag is string => typeof tag === "string" && tag.length > 0)
+      : undefined,
     phases: normalizeManifestPhases((entry as { phases?: unknown }).phases),
   };
 }

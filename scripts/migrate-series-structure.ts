@@ -138,6 +138,9 @@ function cleanManifestEntry(entry: SeriesManifestEntry, directory: string) {
   const nextEntry: SeriesManifestEntry = {
     slug: entry.slug,
     directory,
+    title: entry.title,
+    description: entry.description,
+    tags: entry.tags,
     section: entry.section,
     order: entry.order,
   };
