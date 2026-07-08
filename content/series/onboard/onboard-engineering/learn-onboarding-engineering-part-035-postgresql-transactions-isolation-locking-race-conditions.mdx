@@ -1,0 +1,1108 @@
+---
+title: "Transactions, Isolation, Locking, and Race Conditions"
+description: "Mendalami transaction boundary, isolation level, row locking, optimistic locking, deadlock, lost update, retry, dan concurrency correctness untuk quote/order workloads."
+order: 35
+partTitle: "Transactions and Locking"
+tags:
+  - postgresql
+  - transactions
+  - isolation
+  - locking
+  - concurrency
+  - race-condition
+  - quote
+  - order
+depthLevel: "Advanced"
+prerequisite:
+  - "Part 019 — Quote Aggregate, Order Aggregate, and Lifecycle Invariants"
+  - "Part 024 — Consistency Model: Strong, Eventual, Snapshot, and Reconciliation"
+  - "Part 034 — PostgreSQL as System of Record for Quote and Order Workloads"
+---
+
+# Part 035 — Transactions, Isolation, Locking, and Race Conditions
+
+> Core idea: a transaction is not just a database feature.  
+> In Quote & Order, a transaction is the smallest durable unit of business truth.
+
+A weak transaction boundary creates bugs that rarely reproduce locally:
+
+- a quote is accepted twice,
+- an expired quote becomes an order,
+- an approval decision applies to a stale price,
+- two workers advance the same order item differently,
+- a retry creates duplicate downstream work,
+- an outbox event says something happened although the state update failed,
+- a lock wait turns into an outage because a transaction called a slow external API.
+
+This part is about concurrency correctness. Not academic correctness. Production correctness.
+
+The goal is to help you review Java + MyBatis + PostgreSQL code and ask:
+
+> "What exactly is protected by this transaction, and what can race with it?"
+
+---
+
+## 1. Source Boundary and Fact Discipline
+
+This part uses public PostgreSQL documentation for general behavior of isolation and locking. It does not assume CSG's internal database schema, transaction manager, isolation defaults, lock timeout settings, or repository implementation.
+
+PostgreSQL documentation states that applications can request the four standard isolation levels, while PostgreSQL internally implements three distinct isolation levels. In PostgreSQL, `Read Uncommitted` behaves like `Read Committed`. PostgreSQL also documents explicit locking and row-level locks, including that row-level locks do not block normal reads; they block writers and lockers of the same rows.
+
+Official references used for this part:
+
+- PostgreSQL transaction isolation: https://www.postgresql.org/docs/current/transaction-iso.html
+- PostgreSQL explicit locking: https://www.postgresql.org/docs/current/explicit-locking.html
+- PostgreSQL `EXPLAIN`: https://www.postgresql.org/docs/current/sql-explain.html
+
+Internal details that must be verified:
+
+- default isolation level,
+- transaction manager used by the Java runtime,
+- MyBatis session/transaction integration,
+- optimistic locking convention,
+- explicit lock usage,
+- lock timeout and statement timeout,
+- deadlock incident history,
+- retry policy for serialization or optimistic conflicts,
+- how outbox writes are transactionally coupled to state changes.
+
+---
+
+## 2. Mental Model: Transaction as Business Transition Guard
+
+A transaction should protect one complete business transition.
+
+Bad mental model:
+
+> "Open transaction, run some SQL, commit."
+
+Better mental model:
+
+> "Load current business state, prove command is still valid, apply the transition, persist evidence, publish intent via outbox, and commit all-or-nothing."
+
+For example, accepting a quote is not just:
+
+```sql
+UPDATE quote SET state = 'ACCEPTED' WHERE id = ?;
+```
+
+It is a guarded transition:
+
+```text
+Given quote Q
+When actor A accepts Q
+Then Q must still be active
+And Q must not be expired
+And Q must be using the approved version
+And pricing must still be valid
+And approval requirements must be satisfied
+And no existing order must already be created from this accepted quote
+And audit evidence must be persisted
+And a QuoteAccepted event must be published after commit
+```
+
+That is a transaction boundary.
+
+If the code does not express those guards, PostgreSQL cannot infer them.
+
+---
+
+## 3. The Three Questions for Every Transaction
+
+For every command handler, ask three questions.
+
+### 3.1 What state is read to make the decision?
+
+Examples:
+
+- quote current state,
+- quote version,
+- quote expiry,
+- pricing snapshot status,
+- approval state,
+- order state,
+- order item state,
+- existing idempotency request,
+- existing downstream attempt,
+- tenant configuration.
+
+### 3.2 What state is written as the decision?
+
+Examples:
+
+- state transition,
+- version increment,
+- state history row,
+- audit row,
+- outbox event,
+- idempotency result,
+- integration attempt,
+- retry schedule,
+- fallout record.
+
+### 3.3 What can change concurrently between read and write?
+
+Examples:
+
+- another user reprices the quote,
+- approval is revoked,
+- expiry job marks quote expired,
+- another request accepts the same quote,
+- another worker claims the same order item,
+- customer configuration changes,
+- a replayed Kafka event reprocesses the same command,
+- an operator performs manual recovery.
+
+Most concurrency bugs are failures to answer question 3.
+
+---
+
+## 4. Common Race Conditions in Quote & Order
+
+### 4.1 Lost update
+
+Two transactions read the same row and write conflicting updates.
+
+```text
+T1 reads quote version 7
+T2 reads quote version 7
+T1 updates discount to 10%, version 8
+T2 updates expiry date, version 8
+T1's discount may be overwritten or hidden depending on update shape
+```
+
+Defenses:
+
+- optimistic version check,
+- explicit row lock,
+- command-level merge semantics,
+- update only intended columns,
+- reject stale version.
+
+### 4.2 Double accept
+
+Two requests accept the same quote.
+
+```text
+T1 checks quote is APPROVED
+T2 checks quote is APPROVED
+T1 creates order O1
+T2 creates order O2
+```
+
+Defenses:
+
+- unique constraint on `source_quote_id` for generated orders,
+- quote state transition with compare-and-set,
+- idempotency key,
+- transactionally persisted conversion record,
+- outbox emitted exactly once per business transition.
+
+### 4.3 Approval stale read
+
+A quote is approved based on price version 12, then price version 13 is accepted without reapproval.
+
+Defenses:
+
+- approval references quote version and price calculation ID,
+- any commercial mutation invalidates approval,
+- acceptance requires approval version match,
+- audit records approval basis.
+
+### 4.4 Check-then-act race
+
+The application checks a condition, then writes later without making the check part of the write.
+
+Fragile:
+
+```sql
+SELECT state FROM quote WHERE id = :quoteId;
+-- Java checks state == 'APPROVED'
+UPDATE quote SET state = 'ACCEPTED' WHERE id = :quoteId;
+```
+
+Safer:
+
+```sql
+UPDATE quote
+SET state = 'ACCEPTED', version = version + 1
+WHERE id = :quoteId
+  AND tenant_id = :tenantId
+  AND state = 'APPROVED'
+  AND version = :expectedVersion
+  AND expires_at > now();
+```
+
+If affected row count is zero, the command did not win the race.
+
+### 4.5 Worker claim race
+
+Multiple workers try to process the same order item.
+
+Defenses:
+
+- `SELECT ... FOR UPDATE SKIP LOCKED` for work queues,
+- claim token,
+- lease timeout,
+- retry state machine,
+- idempotent worker side effects.
+
+### 4.6 Duplicate Kafka event race
+
+A consumer receives the same event twice or during replay.
+
+Defenses:
+
+- processed-event table with unique constraint,
+- idempotent domain command,
+- transactionally write inbox marker and state update,
+- do not commit offset before durable state is written.
+
+---
+
+## 5. PostgreSQL Isolation Levels in Practical Terms
+
+### 5.1 Read Committed
+
+Read Committed is the usual default in many PostgreSQL installations. Each statement sees a snapshot as of the start of that statement.
+
+This means:
+
+- two `SELECT`s in the same transaction may see different committed data,
+- a later `UPDATE` can operate on rows changed by another committed transaction,
+- check-then-act logic is dangerous unless the write includes the guard.
+
+Read Committed is not bad. It is often the right default. But it requires explicit concurrency design.
+
+Good fit:
+
+- simple single-row guarded updates,
+- optimistic locking,
+- idempotency inserts,
+- outbox writes in same transaction,
+- short command transactions.
+
+Danger zones:
+
+- multi-row business constraints,
+- aggregate totals,
+- "no active item exists" checks,
+- approval threshold checks that depend on changing data,
+- assignment or allocation logic.
+
+### 5.2 Repeatable Read
+
+Repeatable Read gives a stable snapshot for the transaction. It prevents non-repeatable reads and, in PostgreSQL, also prevents phantom reads as documented in the PostgreSQL isolation table.
+
+It does not mean all business invariants are automatically safe.
+
+You still need to handle concurrent update conflicts and transaction retry.
+
+Good fit:
+
+- read-heavy decision transaction needing stable snapshot,
+- export or report consistency,
+- complex validation where changing reads would be confusing.
+
+Risk:
+
+- long-running transactions,
+- increased conflict probability,
+- false confidence that all cross-row constraints are solved.
+
+### 5.3 Serializable
+
+Serializable aims to make concurrent transactions behave as if executed serially. PostgreSQL implements this with Serializable Snapshot Isolation.
+
+The cost: transactions can fail with serialization errors and must be retried.
+
+Serializable is not a magic switch you enable to avoid modelling. It is a contract:
+
+```text
+Application: I need serializable behavior.
+Database: Fine, but you must retry transactions that cannot be serialized.
+```
+
+Use it carefully for small, bounded, high-value transactions where retry is implemented and tested.
+
+Bad uses:
+
+- long-running transactions,
+- transactions with external side effects,
+- transactions that cannot be safely retried,
+- broad API handlers that do too much.
+
+---
+
+## 6. Optimistic Locking: The Default Senior-Engineer Tool
+
+Optimistic locking works well when conflicts are possible but not constant.
+
+Common shape:
+
+```sql
+UPDATE quote
+SET
+  state = :newState,
+  version = version + 1,
+  updated_at = now(),
+  updated_by = :actorId
+WHERE tenant_id = :tenantId
+  AND quote_id = :quoteId
+  AND version = :expectedVersion
+  AND state = :expectedState;
+```
+
+Application rule:
+
+```text
+if affected_rows == 0:
+    reject as conflict or stale command
+```
+
+Do not silently reload and retry for user-facing commercial commands unless the business semantics allow it.
+
+For example:
+
+- accepting a stale quote should usually fail clearly,
+- retrying an internal order-item worker may be safe,
+- retrying a pricing update may require recalculation,
+- retrying approval may require rechecking authority.
+
+### 6.1 Optimistic locking fields
+
+Typical fields:
+
+```sql
+version bigint not null,
+updated_at timestamptz not null,
+updated_by text null
+```
+
+Use `version` for concurrency control. Do not rely only on `updated_at`; timestamp precision and clock behavior are not a robust conflict mechanism.
+
+### 6.2 Domain-specific optimistic guards
+
+Version alone is sometimes not enough.
+
+Quote acceptance should also guard:
+
+```sql
+AND state = 'APPROVED'
+AND approval_state = 'APPROVED'
+AND price_status = 'VALID'
+AND expires_at > now()
+```
+
+The more important the transition, the more business guards should be present in the write path.
+
+---
+
+## 7. Pessimistic Locking: Use It When You Intend to Serialize Access
+
+Explicit row locks are useful when the command must inspect and mutate a row while excluding concurrent writers.
+
+Example:
+
+```sql
+SELECT *
+FROM quote
+WHERE tenant_id = :tenantId
+  AND quote_id = :quoteId
+FOR UPDATE;
+```
+
+This locks selected rows until transaction end.
+
+Use cases:
+
+- state machine transition with multiple dependent writes,
+- worker claim,
+- order decomposition plan generation,
+- sequential number allocation,
+- high-value command that must not interleave.
+
+### 7.1 Do not lock too broadly
+
+Bad:
+
+```sql
+SELECT * FROM order_item WHERE order_id = :orderId FOR UPDATE;
+```
+
+This may be reasonable if the order has few items. It becomes dangerous if the order can have thousands of items or if it blocks unrelated item processing.
+
+Better alternatives:
+
+- lock aggregate row only,
+- lock selected item rows only,
+- use dependency-aware claim,
+- split large workflows into smaller transactionally guarded steps.
+
+### 7.2 Lock order must be deterministic
+
+Deadlocks often happen when transactions lock the same resources in different order.
+
+Bad:
+
+```text
+T1 locks quote, then approval
+T2 locks approval, then quote
+```
+
+Better:
+
+```text
+Always lock quote first, then approval, then order, then order item.
+```
+
+Document lock ordering for critical workflows.
+
+---
+
+## 8. Unique Constraints as Concurrency Tools
+
+Do not implement uniqueness only in Java.
+
+Database constraints are essential for concurrency correctness.
+
+Examples:
+
+```sql
+CREATE UNIQUE INDEX uq_order_source_quote
+ON product_order (tenant_id, source_quote_id)
+WHERE source_quote_id IS NOT NULL;
+```
+
+```sql
+CREATE UNIQUE INDEX uq_idempotency_key
+ON idempotency_request (tenant_id, operation_name, idempotency_key);
+```
+
+```sql
+CREATE UNIQUE INDEX uq_processed_event
+ON processed_event (consumer_name, event_id);
+```
+
+These constraints turn duplicate attempts into deterministic conflicts.
+
+The application should translate database constraint violations into domain responses:
+
+| Constraint conflict | Domain response |
+|---|---|
+| Duplicate idempotency key | Return original result or conflict depending request hash |
+| Duplicate quote conversion | Return existing order or reject duplicate conversion |
+| Duplicate processed event | Skip event as already processed |
+| Duplicate active approval task | Return existing task or reject duplicate command |
+
+---
+
+## 9. Transaction Boundary in Java Service Code
+
+A good command handler has a small transaction boundary.
+
+```text
+validate request shape outside transaction
+start transaction
+  load guarded state
+  enforce invariant
+  apply transition
+  persist state history/audit
+  insert outbox event
+commit
+publish outbox asynchronously after commit
+```
+
+Avoid:
+
+```text
+start transaction
+  call CRM
+  call pricing service
+  call billing
+  call fulfillment
+  update DB
+commit
+```
+
+External calls inside DB transactions create:
+
+- long lock holds,
+- connection pool starvation,
+- rollback ambiguity,
+- retry complexity,
+- cascading failure under downstream slowness.
+
+### 9.1 Safe command handler shape
+
+```java
+public AcceptQuoteResult accept(AcceptQuoteCommand command) {
+    return transactionTemplate.execute(status -> {
+        QuoteRecord quote = quoteMapper.selectForUpdate(command.tenantId(), command.quoteId());
+
+        Quote quoteDomain = quoteAssembler.toDomain(quote);
+        quoteDomain.accept(command.actor(), command.expectedVersion(), clock.instant());
+
+        int updated = quoteMapper.markAccepted(
+            command.tenantId(),
+            command.quoteId(),
+            command.expectedVersion(),
+            quoteDomain.acceptedAt()
+        );
+
+        if (updated != 1) {
+            throw new OptimisticConflictException("Quote changed during accept");
+        }
+
+        auditMapper.insertQuoteAccepted(...);
+        outboxMapper.insert(...);
+
+        return new AcceptQuoteResult(...);
+    });
+}
+```
+
+This is simplified. The important points are:
+
+- transition guard is explicit,
+- update count is checked,
+- audit and outbox are in the same transaction,
+- external publish happens later.
+
+---
+
+## 10. MyBatis-Specific Transaction Pitfalls
+
+MyBatis gives SQL control. That is powerful. It also means transaction correctness is your responsibility.
+
+Watch for these issues.
+
+### 10.1 Autocommit accidentally enabled
+
+If each mapper call commits independently, the command is not atomic.
+
+Symptom:
+
+```text
+quote state updated
+outbox insert fails
+no event emitted
+system stuck
+```
+
+Verify transaction manager integration.
+
+### 10.2 Multiple data sources with accidental split transactions
+
+A service may write to two databases or schemas. Unless a transaction manager coordinates both, you do not have atomicity across both.
+
+Prefer:
+
+- one authoritative write DB per service command,
+- outbox for cross-system propagation,
+- reconciliation for eventual consistency.
+
+### 10.3 Mapper method hides concurrency guard
+
+Bad mapper:
+
+```java
+void updateQuoteState(UUID quoteId, String state);
+```
+
+Better mapper:
+
+```java
+int transitionQuoteState(
+    TenantId tenantId,
+    QuoteId quoteId,
+    QuoteState expectedState,
+    long expectedVersion,
+    QuoteState newState
+);
+```
+
+A mapper signature should reveal its concurrency assumptions.
+
+### 10.4 Dynamic SQL accidentally drops tenant or version predicate
+
+Dynamic SQL must never make tenant/version guards optional unless there is a specific administrative path with strong controls.
+
+Bad:
+
+```xml
+<if test="tenantId != null">
+  tenant_id = #{tenantId}
+</if>
+```
+
+Tenant boundary should not be optional in normal command paths.
+
+---
+
+## 11. Deadlocks, Lock Waits, and Timeouts
+
+Deadlocks are not solved by hoping.
+
+They are solved by:
+
+- deterministic lock ordering,
+- smaller transactions,
+- narrower locks,
+- shorter lock duration,
+- avoiding user/external waits inside transaction,
+- retrying safe deadlock victims,
+- monitoring lock waits.
+
+### 11.1 Deadlock example
+
+```text
+T1 locks order A
+T2 locks order B
+T1 tries to lock order B
+T2 tries to lock order A
+PostgreSQL detects deadlock and aborts one transaction
+```
+
+Application must be prepared to handle this exception.
+
+### 11.2 Lock wait incident pattern
+
+```text
+Operator opens transaction manually
+Transaction updates a quote row but does not commit
+API requests wait for same quote
+Connection pool fills
+Thread pool fills
+Health checks fail
+Pods restart
+More retries happen
+Incident expands
+```
+
+The root cause may be one forgotten transaction.
+
+### 11.3 Recommended operational settings to verify
+
+Do not blindly set these without internal standards, but verify whether they exist:
+
+- `lock_timeout`,
+- `statement_timeout`,
+- `idle_in_transaction_session_timeout`,
+- application-level request timeout,
+- connection pool max lifetime,
+- transaction retry policy,
+- deadlock logging,
+- slow query logging.
+
+Timeouts should align. A database statement should not run longer than the API/client timeout that already gave up.
+
+---
+
+## 12. Pattern: Quote Acceptance Transaction
+
+A robust quote acceptance flow might look like this.
+
+```text
+Command: AcceptQuote
+Input:
+  tenantId
+  quoteId
+  expectedQuoteVersion
+  actorId
+  idempotencyKey
+
+Transaction:
+  insert or read idempotency request
+  load quote with lock or guarded update
+  verify quote state is APPROVED
+  verify approval basis matches quote version and price calculation
+  verify quote not expired
+  verify actor has accept permission
+  create order placeholder or conversion record
+  mark quote ACCEPTED
+  insert quote state history
+  insert audit event
+  insert outbox QuoteAccepted
+  persist idempotency result
+Commit
+
+After commit:
+  outbox relay publishes event
+```
+
+Key invariant:
+
+```text
+One accepted quote version can produce at most one product order.
+```
+
+Enforce with:
+
+- state guard,
+- version guard,
+- unique constraint,
+- idempotency,
+- audit.
+
+No single mechanism is enough.
+
+---
+
+## 13. Pattern: Order Item Worker Claim
+
+Order fulfillment often uses workers.
+
+Naive approach:
+
+```sql
+SELECT id FROM order_item_task
+WHERE state = 'READY'
+LIMIT 1;
+```
+
+Many workers can select the same row.
+
+Better shape:
+
+```sql
+SELECT id
+FROM order_item_task
+WHERE tenant_id = :tenantId
+  AND state = 'READY'
+  AND available_at <= now()
+ORDER BY priority DESC, created_at ASC
+FOR UPDATE SKIP LOCKED
+LIMIT :batchSize;
+```
+
+Then update claimed rows inside the same transaction:
+
+```sql
+UPDATE order_item_task
+SET state = 'CLAIMED',
+    claimed_by = :workerId,
+    claimed_until = now() + interval '5 minutes',
+    version = version + 1
+WHERE id = ANY(:ids);
+```
+
+Important:
+
+- claim lease must expire,
+- worker side effects must be idempotent,
+- completion should check claim ownership,
+- stuck claimed rows need recovery,
+- `SKIP LOCKED` can starve rows if ordering is not considered.
+
+---
+
+## 14. Pattern: Transactional Outbox
+
+State update and event emission must not be split by failure.
+
+Bad:
+
+```text
+update order state
+commit
+publish Kafka event
+```
+
+If publish fails, state changed but no event exists.
+
+Also bad:
+
+```text
+publish Kafka event
+update order state
+commit
+```
+
+If DB update fails, event lies.
+
+Better:
+
+```text
+transaction:
+  update order state
+  insert outbox row
+commit
+outbox relay:
+  publish event
+  mark outbox published
+```
+
+The outbox row is part of the same transaction as the state change.
+
+This does not remove the need for idempotent consumers. The relay may publish twice. Consumers must dedupe.
+
+---
+
+## 15. Retry Policy: Not All Failures Are Equal
+
+Different conflicts need different handling.
+
+| Failure | Retry? | Notes |
+|---|---:|---|
+| Serialization failure | Usually yes | Only if transaction has no unsafe external side effects |
+| Deadlock victim | Usually yes | Use bounded retry with jitter |
+| Optimistic conflict | Maybe | User commands often should surface conflict |
+| Unique idempotency conflict | No blind retry | Fetch existing idempotency result |
+| Lock timeout | Maybe | Investigate contention; retry can amplify incident |
+| Statement timeout | Maybe | Treat as unknown outcome if client lost response |
+| Connection failure after commit unknown | Reconcile | Use idempotency/business key |
+
+Blind retry is not resilience. It is often incident amplification.
+
+---
+
+## 16. Multi-Tenancy and Locking
+
+Every concurrency guard must include tenant scope unless the table is truly global.
+
+Bad:
+
+```sql
+WHERE quote_id = :quoteId
+```
+
+Better:
+
+```sql
+WHERE tenant_id = :tenantId
+  AND quote_id = :quoteId
+```
+
+Unique constraints also need tenant scope:
+
+```sql
+CREATE UNIQUE INDEX uq_quote_external_ref
+ON quote (tenant_id, external_quote_ref);
+```
+
+Without tenant scope, one customer can accidentally block another customer's identifier space.
+
+Also verify whether tenant-specific deployments use:
+
+- shared database,
+- shared schema,
+- schema-per-tenant,
+- database-per-tenant,
+- dedicated on-prem database.
+
+The right locking and indexing strategy depends on this.
+
+---
+
+## 17. Observability for Concurrency Bugs
+
+Concurrency bugs need dedicated signals.
+
+Log fields:
+
+- `tenantId`,
+- aggregate ID,
+- command name,
+- expected version,
+- actual version if available,
+- transaction attempt number,
+- idempotency key,
+- lock wait time,
+- DB error code,
+- correlation ID,
+- causation ID.
+
+Metrics:
+
+- optimistic conflict count,
+- deadlock count,
+- serialization retry count,
+- lock timeout count,
+- transaction duration,
+- outbox insert-to-publish lag,
+- worker claim contention,
+- duplicate idempotency key count.
+
+Dashboards:
+
+- top lock wait queries,
+- long transactions,
+- idle in transaction sessions,
+- deadlock timeline,
+- connection pool usage,
+- slow command handlers.
+
+A senior engineer should make concurrency failure visible before it becomes customer-visible.
+
+---
+
+## 18. Testing Concurrency
+
+Normal unit tests rarely catch races.
+
+Use targeted concurrency tests.
+
+### 18.1 Optimistic conflict test
+
+```text
+Given quote version 7
+When two commands update it with expectedVersion 7
+Then exactly one succeeds
+And the loser receives a conflict
+And no duplicate audit/outbox rows exist
+```
+
+### 18.2 Double accept test
+
+```text
+Given approved quote
+When two AcceptQuote commands run concurrently
+Then only one order is created
+And quote is accepted once
+And exactly one QuoteAccepted outbox event exists
+```
+
+### 18.3 Deadlock/retry test
+
+```text
+Given two transactions that lock resources in conflicting order
+When deadlock happens
+Then retry policy handles only safe command types
+And logs retry reason
+```
+
+### 18.4 Worker claim test
+
+```text
+Given 100 ready tasks
+When 10 workers claim tasks concurrently
+Then each task is claimed at most once
+And no task is completed by non-owner claim
+```
+
+### 18.5 Replay idempotency test
+
+```text
+Given event E already processed
+When E is consumed again
+Then consumer performs no duplicate side effect
+And offset can still advance
+```
+
+Use PostgreSQL/Testcontainers where possible. Mocking transaction isolation is usually misleading.
+
+---
+
+## 19. PR Review Checklist
+
+For every PR touching transaction-sensitive code, ask:
+
+- What is the transaction boundary?
+- Are all business guards inside the transaction?
+- Does the write include expected state/version predicates?
+- Are affected row counts checked?
+- Are unique constraints used for business uniqueness?
+- Are tenant predicates mandatory?
+- Are external calls made inside transactions?
+- Are outbox/audit/idempotency rows committed atomically?
+- What happens on duplicate request/event?
+- What happens on lock timeout/deadlock/serialization failure?
+- Does the retry policy match business semantics?
+- Is the transaction short enough?
+- Are lock acquisition orders deterministic?
+- Are concurrency tests included?
+- Are observability fields present?
+
+A PR that changes state transition code without answering these is incomplete.
+
+---
+
+## 20. Internal Verification Checklist
+
+Verify these in the actual CSG/team environment:
+
+- PostgreSQL version and managed/self-managed deployment model.
+- Default isolation level.
+- Whether any command uses `SERIALIZABLE` or `REPEATABLE READ`.
+- Transaction manager used in Java services.
+- MyBatis integration with transaction manager.
+- Optimistic locking field convention.
+- State transition SQL conventions.
+- Whether affected row count is consistently checked.
+- Usage of `SELECT FOR UPDATE`, `SKIP LOCKED`, advisory locks.
+- Lock timeout and statement timeout settings.
+- Deadlock and lock wait dashboards.
+- Long transaction monitoring.
+- Connection pool settings.
+- Outbox/inbox implementation.
+- Idempotency key implementation.
+- Retry policy for DB exceptions.
+- Production incidents caused by locks or races.
+
+---
+
+## 21. Exercises
+
+### Exercise 1 — Find a check-then-act race
+
+Pick one command handler that performs a lifecycle transition.
+
+Find:
+
+- what it reads,
+- what it writes,
+- whether the write includes the read condition,
+- whether affected row count is checked,
+- whether a concurrent command can bypass the intended guard.
+
+Write the race as a two-transaction timeline.
+
+### Exercise 2 — Build a transaction map
+
+For quote acceptance or order submission, draw:
+
+```text
+request -> transaction -> state rows -> history rows -> audit rows -> outbox rows -> after-commit publisher
+```
+
+Mark which operations must be atomic.
+
+### Exercise 3 — Review an index-backed uniqueness invariant
+
+Choose one business invariant such as:
+
+```text
+one accepted quote version produces at most one product order
+```
+
+Verify whether it is enforced by:
+
+- Java validation,
+- database unique constraint,
+- transaction guard,
+- idempotency key,
+- test coverage.
+
+### Exercise 4 — Reproduce a race locally
+
+Using Testcontainers or local PostgreSQL:
+
+- create two concurrent transactions,
+- make them attempt the same state transition,
+- prove that exactly one succeeds,
+- assert audit/outbox correctness.
+
+---
+
+## 22. Key Takeaways
+
+- Transaction boundaries should map to business transitions.
+- Read Committed is powerful but requires guarded writes.
+- Optimistic locking is usually the default tool for aggregate state transitions.
+- Explicit locks are useful, but lock scope and duration must be controlled.
+- Unique constraints are concurrency primitives, not just data modelling details.
+- Outbox, audit, state history, and idempotency must be transactionally aligned.
+- External calls inside DB transactions are a common source of incidents.
+- Serialization/deadlock retries must be bounded and business-safe.
+- Concurrency bugs require real database tests and operational observability.
