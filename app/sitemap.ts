@@ -1,6 +1,6 @@
 import { MetadataRoute } from "next";
 import { getSortedBlogsData } from "@/lib/mdx";
-import { getAllSeries, getAllSeriesPartEntries } from "@/lib/series";
+import { getPublicSeries, getPublicSeriesPartEntries } from "@/lib/series";
 import { ENV } from "@/lib/env";
 
 export const dynamic = "force-static";
@@ -23,8 +23,8 @@ function getLatestStableDate(values: Array<string | undefined>) {
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const blogs = getSortedBlogsData();
-  const series = getAllSeries();
-  const seriesParts = getAllSeriesPartEntries();
+  const series = getPublicSeries();
+  const seriesParts = getPublicSeriesPartEntries();
   const baseUrl = ENV.BASE_URL;
   const siteLastModified = getLatestStableDate([
     ...blogs.map((blog) => blog.date),

@@ -223,6 +223,16 @@ function getManifestEntryForSeries(
   );
 }
 
+function isSeriesHidden(
+  seriesSlug: string,
+  directorySlug?: string,
+  sourcePath?: string,
+) {
+  return Boolean(
+    getManifestEntryForSeries(seriesSlug, directorySlug, sourcePath)?.hidden,
+  );
+}
+
 function resolveSeriesSource(seriesSlug: string): ResolvedSeriesSource | null {
   const manifestEntry = getManifestEntryForSeries(seriesSlug);
   if (manifestEntry) {
@@ -381,6 +391,18 @@ export function getAllSeries(): SeriesSummary[] {
     ({ domainId: _domainId, directorySlug: _directorySlug, sourcePath: _sourcePath, ...series }) =>
       series,
   );
+}
+
+export function getPublicSeries(): SeriesSummary[] {
+  return getAllResolvedSeries()
+    .filter(
+      (series) =>
+        !isSeriesHidden(series.seriesSlug, series.directorySlug, series.sourcePath),
+    )
+    .map(
+      ({ domainId: _domainId, directorySlug: _directorySlug, sourcePath: _sourcePath, ...series }) =>
+        series,
+    );
 }
 
 export function getSeriesSummaryBySlug(seriesSlug: string): SeriesSummary | null {
@@ -635,4 +657,40 @@ export function getAllSeriesPartEntries() {
       date: part.date,
     }));
   });
+}
+
+export function getPublicSeriesPartEntries() {
+  const seriesIndex = loadSeriesIndex();
+  if (seriesIndex) {
+    return seriesIndex.entries
+      .filter(
+        (entry) =>
+          !isSeriesHidden(entry.publicSlug, entry.directorySlug, entry.sourcePath),
+      )
+      .flatMap((entry) =>
+        entry.parts.map((part) => ({
+          seriesSlug: entry.publicSlug,
+          partSlug: part.slug,
+          date: part.date,
+        })),
+      );
+  }
+
+  return getAllResolvedSeries()
+    .filter(
+      (series) =>
+        !isSeriesHidden(series.seriesSlug, series.directorySlug, series.sourcePath),
+    )
+    .flatMap((series) => {
+      const source = resolveSeriesSource(series.seriesSlug);
+      if (!source) {
+        return [];
+      }
+
+      return getSeriesPartSummariesForSource(source).map((part) => ({
+        seriesSlug: series.seriesSlug,
+        partSlug: part.slug,
+        date: part.date,
+      }));
+    });
 }
