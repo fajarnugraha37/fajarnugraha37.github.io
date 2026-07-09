@@ -53,11 +53,30 @@ const staticMdxComponents: MDXComponents = {
 
     if (className) {
       return (
-        <pre className="code-block">
-          <code className={className} {...props}>
-            {codeString}
-          </code>
-        </pre>
+        <div className="static-code-block" data-code-block data-font-size="13" data-wrap="false">
+          <div className="static-code-toolbar" data-code-toolbar>
+            <button type="button" data-code-action="focus">
+              Expand
+            </button>
+            <button type="button" data-code-action="wrap">
+              Wrap
+            </button>
+            <button type="button" data-code-action="smaller">
+              A-
+            </button>
+            <button type="button" data-code-action="larger">
+              A+
+            </button>
+            <button type="button" data-code-action="copy">
+              Copy
+            </button>
+          </div>
+          <pre className="code-block" data-code-pre>
+            <code className={className} data-code-source={codeString} {...props}>
+              {codeString}
+            </code>
+          </pre>
+        </div>
       );
     }
 
@@ -589,6 +608,137 @@ function getMermaidEnhancerStyles() {
   `;
 }
 
+function getCodeBlockEnhancerStyles() {
+  return `
+    .static-code-block {
+      position: relative;
+      margin: 1.2rem 0;
+    }
+    .static-code-toolbar {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      z-index: 2;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 4px;
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      border-radius: 10px;
+      background: rgba(8, 18, 25, 0.88);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+    }
+    .static-code-toolbar button,
+    .code-modal-actions button {
+      appearance: none;
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      background: rgba(255, 255, 255, 0.04);
+      color: rgba(226, 232, 240, 0.88);
+      min-width: 34px;
+      height: 34px;
+      padding: 0 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+      font: inherit;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      cursor: pointer;
+      transition:
+        background 140ms ease,
+        color 140ms ease,
+        border-color 140ms ease;
+    }
+    .static-code-toolbar button:hover,
+    .code-modal-actions button:hover,
+    .static-code-toolbar button[data-active="true"],
+    .code-modal-actions button[data-active="true"] {
+      color: #081219;
+      border-color: rgba(101, 210, 255, 0.45);
+      background: #65d2ff;
+    }
+    .static-code-block .code-block {
+      padding-top: 54px;
+    }
+    .code-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 10020;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      background: rgba(0, 0, 0, 0.88);
+      backdrop-filter: blur(12px);
+    }
+    .code-modal[data-open="true"] {
+      display: flex;
+    }
+    .code-modal-card {
+      width: min(1440px, 100%);
+      height: min(92vh, 100%);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      border-radius: 20px;
+      background: #081219;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+    }
+    .code-modal-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 16px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+      background: rgba(8, 18, 25, 0.72);
+      backdrop-filter: blur(12px);
+    }
+    .code-modal-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      color: #9fb7c3;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+    }
+    .code-modal-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+    .code-modal-body {
+      min-height: 0;
+      flex: 1;
+      overflow: auto;
+      padding: 12px;
+    }
+    .code-modal-body .code-block {
+      min-height: 100%;
+      margin: 0;
+      padding: 20px;
+    }
+    @media (min-width: 768px) {
+      .code-modal {
+        padding: 24px;
+      }
+      .code-modal-body {
+        padding: 20px;
+      }
+      .code-modal-body .code-block {
+        padding: 24px;
+      }
+    }
+  `;
+}
+
 function getReadingModeEnhancerStyles() {
   return `
     body[data-static-reading-mode="true"] {
@@ -906,6 +1056,199 @@ function getMermaidEnhancerScript() {
   `;
 }
 
+function getCodeBlockEnhancerScript() {
+  return `
+    <script>
+      (() => {
+        const blocks = Array.from(document.querySelectorAll('[data-code-block]'));
+        if (blocks.length === 0) return;
+
+        const modal = document.createElement('div');
+        modal.className = 'code-modal';
+        modal.innerHTML = [
+          '<div class="code-modal-card">',
+          '  <div class="code-modal-header">',
+          '    <div class="code-modal-meta">',
+          '      <span>Focus Code View</span>',
+          '      <span>/</span>',
+          '      <span data-code-modal-wrap>No wrap</span>',
+          '      <span>/</span>',
+          '      <span data-code-modal-size>13px</span>',
+          '    </div>',
+          '    <div class="code-modal-actions">',
+          '      <button type="button" data-code-modal-action="wrap">Wrap</button>',
+          '      <button type="button" data-code-modal-action="smaller">A-</button>',
+          '      <button type="button" data-code-modal-action="larger">A+</button>',
+          '      <button type="button" data-code-modal-action="copy">Copy</button>',
+          '      <button type="button" data-code-modal-action="close">Close</button>',
+          '    </div>',
+          '  </div>',
+          '  <div class="code-modal-body"></div>',
+          '</div>',
+        ].join('');
+        document.body.appendChild(modal);
+
+        const modalBody = modal.querySelector('.code-modal-body');
+        const modalWrap = modal.querySelector('[data-code-modal-wrap]');
+        const modalSize = modal.querySelector('[data-code-modal-size]');
+        let activeBlock = null;
+
+        const getBlockState = (block) => ({
+          wrap: block.dataset.wrap === 'true',
+          fontSize: Math.min(20, Math.max(11, Number(block.dataset.fontSize || '13') || 13)),
+        });
+
+        const applyCodePresentation = (pre, state) => {
+          pre.style.fontSize = String(state.fontSize) + 'px';
+          pre.style.lineHeight = '1.75';
+          pre.style.whiteSpace = state.wrap ? 'pre-wrap' : 'pre';
+          pre.style.wordBreak = state.wrap ? 'break-word' : 'normal';
+        };
+
+        const syncBlock = (block) => {
+          const pre = block.querySelector('[data-code-pre]');
+          const wrapButton = block.querySelector('[data-code-action="wrap"]');
+          if (!pre) return;
+          const state = getBlockState(block);
+          applyCodePresentation(pre, state);
+          if (wrapButton) {
+            wrapButton.dataset.active = state.wrap ? 'true' : 'false';
+          }
+          if (activeBlock === block) {
+            renderModal(block);
+          }
+        };
+
+        const renderModal = (block) => {
+          const state = getBlockState(block);
+          const codeNode = block.querySelector('code');
+          const source = codeNode?.textContent || '';
+          const className = codeNode?.getAttribute('class') || '';
+          modalBody.innerHTML = '';
+          const pre = document.createElement('pre');
+          pre.className = 'code-block';
+          const code = document.createElement('code');
+          if (className) code.className = className;
+          code.textContent = source;
+          pre.appendChild(code);
+          applyCodePresentation(pre, state);
+          modalBody.appendChild(pre);
+          modalWrap.textContent = state.wrap ? 'Wrapped' : 'No wrap';
+          modalSize.textContent = String(state.fontSize) + 'px';
+          const modalWrapButton = modal.querySelector('[data-code-modal-action="wrap"]');
+          if (modalWrapButton) {
+            modalWrapButton.dataset.active = state.wrap ? 'true' : 'false';
+          }
+        };
+
+        const copyFromBlock = async (block) => {
+          const source = block.querySelector('code')?.textContent || '';
+          try {
+            await navigator.clipboard.writeText(source);
+          } catch (error) {
+            console.error('Failed copying code block', error);
+          }
+        };
+
+        const updateBlock = (block, updater) => {
+          const state = getBlockState(block);
+          const nextState = updater(state);
+          block.dataset.wrap = nextState.wrap ? 'true' : 'false';
+          block.dataset.fontSize = String(nextState.fontSize);
+          syncBlock(block);
+        };
+
+        const openModal = (block) => {
+          activeBlock = block;
+          renderModal(block);
+          modal.dataset.open = 'true';
+          document.body.style.overflow = 'hidden';
+        };
+
+        const closeModal = () => {
+          modal.dataset.open = 'false';
+          activeBlock = null;
+          document.body.style.overflow = '';
+        };
+
+        blocks.forEach((block) => {
+          syncBlock(block);
+          block.querySelector('[data-code-toolbar]')?.addEventListener('click', async (event) => {
+            const action = event.target?.closest('button')?.dataset?.codeAction;
+            if (!action) return;
+
+            if (action === 'copy') {
+              await copyFromBlock(block);
+              return;
+            }
+
+            if (action === 'focus') {
+              openModal(block);
+              return;
+            }
+
+            if (action === 'wrap') {
+              updateBlock(block, (state) => ({ ...state, wrap: !state.wrap }));
+              return;
+            }
+
+            if (action === 'smaller') {
+              updateBlock(block, (state) => ({ ...state, fontSize: Math.max(11, state.fontSize - 1) }));
+              return;
+            }
+
+            if (action === 'larger') {
+              updateBlock(block, (state) => ({ ...state, fontSize: Math.min(20, state.fontSize + 1) }));
+            }
+          });
+        });
+
+        modal.addEventListener('click', (event) => {
+          if (event.target === modal) {
+            closeModal();
+          }
+        });
+
+        modal.querySelector('.code-modal-actions')?.addEventListener('click', async (event) => {
+          const action = event.target?.closest('button')?.dataset?.codeModalAction;
+          if (!action || !activeBlock) return;
+
+          if (action === 'close') {
+            closeModal();
+            return;
+          }
+
+          if (action === 'copy') {
+            await copyFromBlock(activeBlock);
+            return;
+          }
+
+          if (action === 'wrap') {
+            updateBlock(activeBlock, (state) => ({ ...state, wrap: !state.wrap }));
+            return;
+          }
+
+          if (action === 'smaller') {
+            updateBlock(activeBlock, (state) => ({ ...state, fontSize: Math.max(11, state.fontSize - 1) }));
+            return;
+          }
+
+          if (action === 'larger') {
+            updateBlock(activeBlock, (state) => ({ ...state, fontSize: Math.min(20, state.fontSize + 1) }));
+          }
+        });
+
+        window.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape' && modal.dataset.open === 'true') {
+            event.preventDefault();
+            closeModal();
+          }
+        });
+      })();
+    </script>
+  `;
+}
+
 function getReadingModeEnhancerScript() {
   return `
     <script>
@@ -1098,7 +1441,7 @@ async function renderDocument({
   children: ReactNode;
   shellOutputRoot?: string;
 }) {
-  const contentHtml = `${renderToStaticMarkup(children)}${getMermaidEnhancerScript()}${getReadingModeEnhancerScript()}`;
+  const contentHtml = `${renderToStaticMarkup(children)}${getMermaidEnhancerScript()}${getCodeBlockEnhancerScript()}${getReadingModeEnhancerScript()}`;
 
   if (shellOutputRoot) {
     return renderStaticAppShellDocument({
@@ -1106,7 +1449,7 @@ async function renderDocument({
       title,
       description,
       contentHtml,
-      headHtml: `<style>${getMermaidEnhancerStyles()}${getReadingModeEnhancerStyles()}</style>`,
+      headHtml: `<style>${getMermaidEnhancerStyles()}${getCodeBlockEnhancerStyles()}${getReadingModeEnhancerStyles()}</style>`,
     });
   }
 
