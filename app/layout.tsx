@@ -3,7 +3,13 @@ import "./app.css";
 // @ts-ignore
 import "katex/dist/katex.min.css";
 import type { Metadata } from "next";
-import { Orbitron, Share_Tech_Mono, JetBrains_Mono } from "next/font/google";
+import {
+  Inter,
+  JetBrains_Mono,
+  Orbitron,
+  Share_Tech_Mono,
+  Source_Serif_4,
+} from "next/font/google";
 import { ENV } from "@/lib/env";
 import { Header } from "@/components/organisms/Header";
 import { Footer } from "@/components/organisms/Footer";
@@ -22,6 +28,14 @@ const shareTech = Share_Tech_Mono({
   weight: "400",
   subsets: ["latin"],
   variable: "--font-share-tech",
+});
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+});
+const sourceSerif = Source_Serif_4({
+  subsets: ["latin"],
+  variable: "--font-source-serif",
 });
 
 export const metadata: Metadata = {
@@ -91,7 +105,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${orbitron.variable} ${jetbrains.variable} ${shareTech.variable}`}
+      className={`${orbitron.variable} ${jetbrains.variable} ${shareTech.variable} ${inter.variable} ${sourceSerif.variable}`}
       data-scroll-behavior="smooth"
     >
       <body suppressHydrationWarning className="min-h-screen flex flex-col bg-background text-foreground selection:bg-accent selection:text-black">

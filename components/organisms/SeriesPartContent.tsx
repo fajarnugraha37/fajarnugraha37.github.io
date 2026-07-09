@@ -523,7 +523,6 @@ export function SeriesPartContent({
                   ? "mx-auto rounded-2xl border-accent/10 bg-background/60 px-4 py-6 shadow-[0_24px_60px_rgba(0,0,0,0.22)] md:px-8 md:py-10"
                   : "border-border/20 p-4 md:p-8",
               )}
-              style={{ fontFamily: "Inter, system-ui, sans-serif" }}
             >
               <div
                 data-reading-prose
