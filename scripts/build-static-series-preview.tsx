@@ -591,6 +591,11 @@ function getMermaidEnhancerStyles() {
 
 function getReadingModeEnhancerStyles() {
   return `
+    body[data-static-reading-mode="true"] {
+      background:
+        radial-gradient(circle at top, rgba(101, 210, 255, 0.08), transparent 26%),
+        linear-gradient(180deg, #081219 0%, #071116 100%);
+    }
     body[data-static-reading-mode="true"] [data-reading-sidebar],
     body[data-static-reading-mode="true"] [data-reading-toc],
     body[data-static-reading-mode="true"] [data-reading-mobile-nav],
@@ -603,6 +608,8 @@ function getReadingModeEnhancerStyles() {
     body[data-static-reading-mode="true"] [data-reading-layout] {
       display: block !important;
       max-width: 980px !important;
+      padding-inline: 12px !important;
+      padding-top: 16px !important;
       padding-bottom: 112px;
     }
     body[data-static-reading-mode="true"] [data-reading-main] {
@@ -610,16 +617,33 @@ function getReadingModeEnhancerStyles() {
       max-width: 78ch !important;
       margin-inline: auto;
     }
+    body[data-static-reading-mode="true"] [data-reading-hint] {
+      max-height: 40px !important;
+      margin-top: 12px !important;
+      opacity: 1 !important;
+      pointer-events: auto !important;
+    }
+    body[data-static-reading-mode="true"] [data-reading-fab] {
+      opacity: 1 !important;
+      pointer-events: auto !important;
+      transform: translateY(0) !important;
+    }
     body[data-static-reading-mode="true"] [data-reading-article-shell] {
       margin-inline: auto;
       border-color: rgba(101, 210, 255, 0.12) !important;
       background: rgba(7, 17, 22, 0.66) !important;
+      border-radius: 20px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.22);
       padding: 28px 20px !important;
     }
     body[data-static-reading-mode="true"] [data-reading-prose] {
       max-width: 72ch !important;
       margin-inline: auto;
       line-height: 2 !important;
+    }
+    body[data-static-reading-mode="true"] [data-reading-chrome] {
+      border-bottom-color: rgba(101, 210, 255, 0.16) !important;
+      background: rgba(7, 17, 22, 0.88) !important;
     }
     body[data-static-reading-mode="true"] [data-reading-chrome][data-chrome-hidden="true"] {
       transform: translateY(calc(-100% - 1rem));
@@ -670,6 +694,13 @@ function getReadingModeEnhancerStyles() {
         flex-direction: row;
         align-items: center;
         justify-content: space-between;
+      }
+      body[data-static-reading-mode="true"] [data-reading-layout] {
+        padding-inline: 20px !important;
+        padding-top: 24px !important;
+      }
+      body[data-static-reading-mode="true"] [data-reading-article-shell] {
+        padding: 40px 32px !important;
       }
     }
   `;
@@ -1007,6 +1038,31 @@ function getReadingModeEnhancerScript() {
             applyReadingMode();
             onScroll();
           });
+        });
+
+        window.addEventListener('keydown', (event) => {
+          const target = event.target;
+          const tagName = target && target.tagName ? String(target.tagName).toUpperCase() : '';
+          const isEditable = tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT' || target?.isContentEditable;
+
+          if (isEditable || event.metaKey || event.ctrlKey || event.altKey) {
+            return;
+          }
+
+          if (event.key === 'Escape' && isReadingMode) {
+            event.preventDefault();
+            isReadingMode = false;
+            applyReadingMode();
+            onScroll();
+            return;
+          }
+
+          if (event.altKey && event.shiftKey && String(event.key || '').toLowerCase() === 'r') {
+            event.preventDefault();
+            isReadingMode = !isReadingMode;
+            applyReadingMode();
+            onScroll();
+          }
         });
 
         applyReadingMode();

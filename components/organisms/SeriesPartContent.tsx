@@ -1,8 +1,8 @@
- "use client";
+"use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, X } from "lucide-react";
 import { PageTransitionEffects } from "@/components/atoms/PageTransitionEffects";
 import { TocNav } from "@/components/molecules/TocNav";
 import { ContentAudioPlayer } from "@/components/molecules/ContentAudioPlayer";
@@ -109,6 +109,14 @@ export function SeriesPartContent({
   }, [isReadingMode, readingModeStorageKey]);
 
   useEffect(() => {
+    document.body.dataset.seriesReadingMode = isReadingMode ? "true" : "false";
+
+    return () => {
+      delete document.body.dataset.seriesReadingMode;
+    };
+  }, [isReadingMode]);
+
+  useEffect(() => {
     const persistProgress = (scrollY: number) => {
       try {
         window.localStorage.setItem(readingProgressStorageKey, String(Math.max(0, Math.round(scrollY))));
@@ -165,6 +173,38 @@ export function SeriesPartContent({
     };
   }, [isReadingMode, readingProgressStorageKey]);
 
+  useEffect(() => {
+    const handleKeydown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const isEditable =
+        target?.tagName === "INPUT" ||
+        target?.tagName === "TEXTAREA" ||
+        target?.tagName === "SELECT" ||
+        target?.isContentEditable;
+
+      if (isEditable || event.metaKey || event.ctrlKey || event.altKey) {
+        return;
+      }
+
+      if (event.key === "Escape" && isReadingMode) {
+        event.preventDefault();
+        setIsReadingMode(false);
+        return;
+      }
+
+      if (event.altKey && event.shiftKey && event.key.toLowerCase() === "r") {
+        event.preventDefault();
+        setIsReadingMode((value) => !value);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeydown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeydown);
+    };
+  }, [isReadingMode]);
+
   const handleResumeReading = () => {
     if (resumeOffset === null) return;
     window.scrollTo({ top: resumeOffset, behavior: "smooth" });
@@ -175,14 +215,39 @@ export function SeriesPartContent({
     <>
       <PageTransitionEffects />
       <SeriesProgressTracker seriesSlug={part.seriesSlug} partSlug={part.slug} />
-      <div className="relative min-h-screen">
+      <div
+        className={cn(
+          "relative min-h-screen transition-colors duration-300",
+          isReadingMode &&
+            "bg-[radial-gradient(circle_at_top,rgba(101,210,255,0.08),transparent_26%)]",
+        )}
+      >
+        <button
+          data-reading-fab
+          type="button"
+          onClick={() => setIsReadingMode(false)}
+          aria-hidden={!isReadingMode}
+          className={cn(
+            "fixed bottom-4 right-4 z-40 inline-flex items-center gap-2 border border-accent/30 bg-background/90 px-3 py-2 text-[10px] font-mono uppercase tracking-[0.16em] text-accent shadow-[0_16px_40px_rgba(0,0,0,0.28)] backdrop-blur-xl transition-all md:bottom-6 md:right-6",
+            isReadingMode
+              ? "translate-y-0 opacity-100"
+              : "pointer-events-none translate-y-3 opacity-0",
+          )}
+        >
+          <X className="h-3.5 w-3.5" />
+          Exit Reading
+          <span className="border-l border-accent/30 pl-2 text-[9px] text-accent/70">
+            Esc
+          </span>
+        </button>
         <article
           data-series-part-page
           data-series-slug={part.seriesSlug}
           data-part-slug={part.slug}
           data-reading-layout
           className={cn(
-            "max-w-[1500px] mx-auto relative z-10 px-4 pt-6 pb-28 md:pt-10 lg:pb-12 grid grid-cols-1 gap-6 lg:gap-8 xl:gap-10",
+            "max-w-[1500px] mx-auto relative z-10 grid grid-cols-1 gap-6 px-4 pt-6 pb-28 transition-[max-width,padding] duration-300 md:pt-10 lg:gap-8 lg:pb-12 xl:gap-10",
+            isReadingMode && "px-3 pt-4 md:px-5 md:pt-6",
             !isReadingMode &&
               (showToc
                 ? "lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)_220px]"
@@ -272,6 +337,23 @@ export function SeriesPartContent({
                   style={{ width: `${scrollProgress * 100}%` }}
                 />
               </div>
+              <div
+                data-reading-hint
+                className={cn(
+                  "overflow-hidden text-[9px] font-mono uppercase tracking-[0.16em] text-muted-foreground transition-all duration-300",
+                  isReadingMode
+                    ? "mt-3 max-h-10 opacity-100"
+                    : "max-h-0 opacity-0 pointer-events-none",
+                )}
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <span>Focus mode active</span>
+                  <span>/</span>
+                  <span>Press Alt+Shift+R to toggle</span>
+                  <span>/</span>
+                  <span>Esc to exit</span>
+                </div>
+              </div>
             </div>
 
             {resumeOffset !== null ? (
@@ -307,8 +389,8 @@ export function SeriesPartContent({
                   Ordered learning track
                 </span>
                 {isReadingMode ? (
-                  <span className="text-muted-foreground">
-                    Focus mode active
+                  <span className="text-muted-foreground/80">
+                    Quiet reading surface
                   </span>
                 ) : null}
               </div>
@@ -332,13 +414,19 @@ export function SeriesPartContent({
               <p
                 className={cn(
                   "max-w-3xl text-base leading-relaxed text-muted-foreground md:text-lg",
-                  isReadingMode && "max-w-[68ch] text-[1.05rem] leading-8 md:text-[1.12rem]",
+                  isReadingMode &&
+                    "max-w-[68ch] text-[1.02rem] leading-8 text-foreground/72 md:text-[1.1rem]",
                 )}
               >
                 {part.description}
               </p>
 
-              <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono uppercase tracking-[0.15em]">
+              <div
+                className={cn(
+                  "flex flex-wrap items-center gap-2 text-[10px] font-mono uppercase tracking-[0.15em]",
+                  isReadingMode && "text-[9px] text-muted-foreground/80",
+                )}
+              >
                 <time className="border border-accent-secondary/20 bg-accent-secondary/5 px-2 py-1 text-accent-secondary">
                   [{part.date}]
                 </time>
@@ -430,9 +518,9 @@ export function SeriesPartContent({
             <div
               data-reading-article-shell
               className={cn(
-                "markdown-body relative overflow-x-auto border bg-card/5 text-foreground/90",
+                "markdown-body relative overflow-x-auto border bg-card/5 text-foreground/90 transition-all duration-300",
                 isReadingMode
-                  ? "mx-auto border-accent/10 bg-background/60 px-5 py-6 md:px-8 md:py-10"
+                  ? "mx-auto rounded-2xl border-accent/10 bg-background/60 px-4 py-6 shadow-[0_24px_60px_rgba(0,0,0,0.22)] md:px-8 md:py-10"
                   : "border-border/20 p-4 md:p-8",
               )}
               style={{ fontFamily: "Inter, system-ui, sans-serif" }}
@@ -441,7 +529,7 @@ export function SeriesPartContent({
                 data-reading-prose
                 className={cn(
                   "relative z-10 prose prose-invert max-w-none",
-                  isReadingMode && "mx-auto max-w-[72ch] leading-8",
+                  isReadingMode && "mx-auto max-w-[72ch] leading-8 md:leading-9",
                 )}
               >
                 {children}
