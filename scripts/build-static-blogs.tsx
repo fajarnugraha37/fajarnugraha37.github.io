@@ -28,7 +28,7 @@ const staticMdxComponents: MDXComponents = {
       return (
         <figure className="diagram-block mermaid-block">
           <div className="mermaid-header">
-            <figcaption className="mermaid-caption">Mermaid Diagram</figcaption>
+            {/* <figcaption className="mermaid-caption">Mermaid Diagram</figcaption> */}
             <div className="mermaid-toolbar" data-mermaid-toolbar>
               <button type="button" data-mermaid-action="zoom">
                 Zoom

@@ -39,18 +39,29 @@ export const mdxComponents: any = {
     />
   ),
   table: (props: any) => (
-    <div className="w-full overflow-x-auto my-6 border border-border/30 rounded-lg">
-      <table className="w-full border-collapse text-sm" {...props} />
+    <div
+      data-reading-table-frame
+      className="relative my-6 overflow-hidden rounded-lg border border-border/30"
+    >
+      <div data-reading-table-scroll className="w-full overflow-x-auto">
+        <table
+          data-reading-table
+          className="w-full border-collapse text-sm"
+          {...props}
+        />
+      </div>
     </div>
   ),
   th: (props: any) => (
     <th
+      data-reading-table-head-cell
       className="border-b border-border/30 bg-muted/50 px-4 py-3 text-left font-bold text-accent uppercase tracking-wider"
       {...props}
     />
   ),
   td: (props: any) => (
     <td
+      data-reading-table-cell
       className="border-b border-border/10 px-4 py-3 text-foreground/80"
       {...props}
     />

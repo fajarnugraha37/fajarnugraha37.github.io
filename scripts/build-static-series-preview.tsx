@@ -28,7 +28,7 @@ const staticMdxComponents: MDXComponents = {
       return (
         <figure className="diagram-block mermaid-block">
           <div className="mermaid-header">
-            <figcaption className="mermaid-caption">Mermaid Diagram</figcaption>
+            {/* <figcaption className="mermaid-caption">Mermaid Diagram</figcaption> */}
             <div className="mermaid-toolbar" data-mermaid-toolbar>
               <button type="button" data-mermaid-action="zoom">
                 Zoom
@@ -99,12 +99,14 @@ const staticMdxComponents: MDXComponents = {
     />
   ),
   table: (props: any) => (
-    <div className="table-wrap">
-      <table {...props} />
+    <div className="table-wrap" data-reading-table-frame>
+      <div className="table-scroll" data-reading-table-scroll>
+        <table data-reading-table {...props} />
+      </div>
     </div>
   ),
-  th: (props: any) => <th {...props} />,
-  td: (props: any) => <td {...props} />,
+  th: (props: any) => <th data-reading-table-head-cell {...props} />,
+  td: (props: any) => <td data-reading-table-cell {...props} />,
 };
 
 function getDocumentStyles() {
@@ -399,16 +401,93 @@ function getDocumentStyles() {
       letter-spacing: 0.14em;
       color: var(--muted);
     }
-    .table-wrap { overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td {
-      padding: 10px 12px;
+    .table-wrap {
+      position: relative;
+      overflow: hidden;
+      margin: 24px 0 30px;
+      border: 1px solid rgba(87, 114, 130, 0.48);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 24%),
+        rgba(10, 10, 15, 0.65);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    }
+    .table-hint {
+      display: none;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 8px 12px;
+      border-bottom: 1px solid rgba(87, 114, 130, 0.24);
+      background: rgba(10, 10, 15, 0.78);
+      color: var(--muted);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+    }
+    .table-hint span:last-child {
+      color: var(--accent);
+      opacity: 0.8;
+    }
+    .table-scroll {
+      overflow-x: auto;
+      overscroll-behavior-x: contain;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(101, 210, 255, 0.55) rgba(255, 255, 255, 0.04);
+    }
+    .table-scroll::-webkit-scrollbar {
+      height: 10px;
+    }
+    .table-scroll::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.04);
+    }
+    .table-scroll::-webkit-scrollbar-thumb {
+      background: rgba(101, 210, 255, 0.55);
+      border-radius: 999px;
+    }
+    .article-prose table {
+      width: max(100%, 44rem);
+      min-width: 100%;
+      border-collapse: collapse;
+      table-layout: auto;
+      font-size: 0.98rem;
+      line-height: 1.65;
+    }
+    .article-prose th,
+    .article-prose td {
+      min-width: 11rem;
+      max-width: 34ch;
+      padding: 12px 14px;
       border-bottom: 1px solid var(--border);
       text-align: left;
+      vertical-align: top;
+      white-space: normal;
+      word-break: normal;
+      overflow-wrap: anywhere;
     }
-    th {
+    .article-prose th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
       color: var(--accent);
       font-size: 12px;
+      font-family: Inter, system-ui, sans-serif;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      background: rgba(20, 30, 34, 0.95);
+      backdrop-filter: blur(12px);
+      box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.05);
+    }
+    .article-prose tbody tr:nth-child(odd) td {
+      background: rgba(255, 255, 255, 0.015);
+    }
+    .article-prose tbody tr:hover td {
+      background: rgba(101, 210, 255, 0.08);
+    }
+    .article-prose caption {
+      caption-side: top;
+      padding: 14px 16px 8px;
+      text-align: left;
+      color: var(--muted);
+      font-size: 11px;
       text-transform: uppercase;
       letter-spacing: 0.14em;
     }
@@ -441,6 +520,27 @@ function getDocumentStyles() {
       color: var(--muted);
       font-size: 0.92rem;
       line-height: 1.6;
+    }
+    @media (max-width: 767px) {
+      .table-hint {
+        display: flex;
+      }
+      .table-wrap::before {
+        width: 24px;
+      }
+      .table-wrap::after {
+        width: 32px;
+      }
+      .article-prose table {
+        width: max(100%, 36rem);
+        font-size: 0.92rem;
+      }
+      .article-prose th,
+      .article-prose td {
+        min-width: 9.5rem;
+        max-width: 24ch;
+        padding: 10px 12px;
+      }
     }
     @media (min-width: 920px) {
       .page-shell { padding: 40px 24px 80px; }
