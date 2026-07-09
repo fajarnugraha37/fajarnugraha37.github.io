@@ -59,6 +59,7 @@ export function SeriesMobileNavigator({
     <>
       <div className="mb-6 border border-border bg-card/20 lg:hidden">
         <button
+          data-series-mobile-open-inline
           type="button"
           onClick={() => setOpen(true)}
           className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left"
@@ -83,15 +84,28 @@ export function SeriesMobileNavigator({
         </button>
       </div>
 
-      {open ? (
-        <div className="fixed inset-0 z-[70] lg:hidden">
+      <div
+        data-series-mobile-overlay
+        aria-hidden={!open}
+        className={cn(
+          "fixed inset-0 z-[70] transition-opacity duration-200 lg:hidden",
+          open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
+        )}
+      >
           <button
+            data-series-mobile-close-overlay
             type="button"
             aria-label="Close curriculum"
             onClick={() => setOpen(false)}
             className="absolute inset-0 bg-background/80 backdrop-blur-sm"
           />
-          <div className="absolute inset-x-0 bottom-0 max-h-[82vh] overflow-hidden rounded-t-3xl border border-border bg-background shadow-[0_-20px_60px_rgba(0,0,0,0.65)]">
+          <div
+            data-series-mobile-sheet
+            className={cn(
+              "absolute inset-x-0 bottom-0 max-h-[82vh] overflow-hidden rounded-t-3xl border border-border bg-background shadow-[0_-20px_60px_rgba(0,0,0,0.65)] transition-all duration-200",
+              open ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0",
+            )}
+          >
             <div className="flex items-center justify-between border-b border-border px-4 py-4">
               <div>
                 <span className="block text-[10px] font-mono uppercase tracking-[0.2em] text-accent">
@@ -102,6 +116,7 @@ export function SeriesMobileNavigator({
                 </span>
               </div>
               <button
+                data-series-mobile-close
                 type="button"
                 onClick={() => setOpen(false)}
                 className="border border-border p-2 text-muted-foreground transition-colors hover:border-accent hover:text-accent"
@@ -181,7 +196,6 @@ export function SeriesMobileNavigator({
             </nav>
           </div>
         </div>
-      ) : null}
 
       <div className="fixed inset-x-4 bottom-4 z-[60] lg:hidden">
         <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 border border-border bg-background/95 p-2 shadow-[0_20px_45px_rgba(0,0,0,0.6)] backdrop-blur-xl">
@@ -202,6 +216,7 @@ export function SeriesMobileNavigator({
           )}
 
           <button
+            data-series-mobile-open-floating
             type="button"
             onClick={() => setOpen(true)}
             className="border border-accent/30 bg-accent/10 px-4 py-2 text-[10px] font-mono uppercase tracking-[0.2em] text-accent transition-colors hover:bg-accent hover:text-black"

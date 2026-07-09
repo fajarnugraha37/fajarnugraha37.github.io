@@ -1261,6 +1261,7 @@ function getReadingModeEnhancerScript() {
         const modeKey = 'series-reading-mode:' + seriesSlug;
         const progressKey = 'series-reading-progress:' + seriesSlug + ':' + partSlug;
         const toggleButtons = Array.from(document.querySelectorAll('[data-reading-toggle]'));
+        const exitFab = document.querySelector('[data-reading-fab]');
         const progressBar = document.querySelector('[data-reading-progress-bar]');
         const chrome = document.querySelector('[data-reading-chrome]');
         const main = document.querySelector('[data-reading-main]');
@@ -1383,6 +1384,13 @@ function getReadingModeEnhancerScript() {
           });
         });
 
+        exitFab?.addEventListener('click', (event) => {
+          event.preventDefault();
+          isReadingMode = false;
+          applyReadingMode();
+          onScroll();
+        });
+
         window.addEventListener('keydown', (event) => {
           const target = event.target;
           const tagName = target && target.tagName ? String(target.tagName).toUpperCase() : '';
@@ -1417,6 +1425,65 @@ function getReadingModeEnhancerScript() {
   `;
 }
 
+function getSeriesMobileNavigatorEnhancerScript() {
+  return `
+    <script>
+      (() => {
+        const floatingOpenButton = document.querySelector('[data-series-mobile-open-floating]');
+        const inlineOpenButton = document.querySelector('[data-series-mobile-open-inline]');
+        const overlay = document.querySelector('[data-series-mobile-overlay]');
+        const sheet = document.querySelector('[data-series-mobile-sheet]');
+        const closeButtons = Array.from(document.querySelectorAll('[data-series-mobile-close], [data-series-mobile-close-overlay]'));
+
+        if ((!floatingOpenButton && !inlineOpenButton) || !overlay) return;
+
+        const body = document.body;
+
+        const showOverlay = () => {
+          overlay.classList.remove('pointer-events-none', 'opacity-0');
+          overlay.classList.add('pointer-events-auto', 'opacity-100');
+          overlay.setAttribute('aria-hidden', 'false');
+          if (sheet) {
+            sheet.classList.remove('translate-y-6', 'opacity-0');
+            sheet.classList.add('translate-y-0', 'opacity-100');
+          }
+          body.style.overflow = 'hidden';
+        };
+
+        const hideOverlay = () => {
+          overlay.classList.remove('pointer-events-auto', 'opacity-100');
+          overlay.classList.add('pointer-events-none', 'opacity-0');
+          overlay.setAttribute('aria-hidden', 'true');
+          if (sheet) {
+            sheet.classList.remove('translate-y-0', 'opacity-100');
+            sheet.classList.add('translate-y-6', 'opacity-0');
+          }
+          body.style.overflow = '';
+        };
+
+        hideOverlay();
+
+        floatingOpenButton?.addEventListener('click', (event) => {
+          event.preventDefault();
+          showOverlay();
+        });
+
+        inlineOpenButton?.addEventListener('click', (event) => {
+          event.preventDefault();
+          showOverlay();
+        });
+
+        closeButtons.forEach((button) => {
+          button.addEventListener('click', (event) => {
+            event.preventDefault();
+            hideOverlay();
+          });
+        });
+      })();
+    </script>
+  `;
+}
+
 function formatDateLabel(value: string) {
   return value || "Undated";
 }
@@ -1441,7 +1508,7 @@ async function renderDocument({
   children: ReactNode;
   shellOutputRoot?: string;
 }) {
-  const contentHtml = `${renderToStaticMarkup(children)}${getMermaidEnhancerScript()}${getCodeBlockEnhancerScript()}${getReadingModeEnhancerScript()}`;
+  const contentHtml = `${renderToStaticMarkup(children)}${getMermaidEnhancerScript()}${getCodeBlockEnhancerScript()}${getReadingModeEnhancerScript()}${getSeriesMobileNavigatorEnhancerScript()}`;
 
   if (shellOutputRoot) {
     return renderStaticAppShellDocument({
