@@ -97,11 +97,13 @@ export async function renderStaticAppShellDocument({
   title,
   description,
   contentHtml,
+  headHtml,
 }: {
   outputRoot: string;
   title: string;
   description: string;
   contentHtml: string;
+  headHtml?: string;
 }) {
   const referenceHtml = await loadShellReferenceHtml(outputRoot);
   const snapshot = extractShellSnapshot(referenceHtml);
@@ -115,6 +117,7 @@ export async function renderStaticAppShellDocument({
     `<title>${escapeHtml(title)}</title>`,
     `<meta name="description" content="${escapeHtml(description)}"/>`,
     snapshot.headLinks,
+    headHtml || "",
     "</head>",
     `<body${snapshot.bodyAttrs}>`,
     snapshot.prefixHtml,

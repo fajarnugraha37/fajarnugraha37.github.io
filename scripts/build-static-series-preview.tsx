@@ -3,7 +3,6 @@ import path from "path";
 import React, { type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { MDXComponents } from "mdx/types";
-import { mdxComponents } from "../components/molecules/MDXComponents";
 import { SeriesPartContent } from "../components/organisms/SeriesPartContent";
 import { getSeriesPartAudioEntry } from "../lib/audio/read";
 import { getSeriesPartCompiledMdx } from "../lib/compiled-mdx-cache";
@@ -27,11 +26,27 @@ const staticMdxComponents: MDXComponents = {
 
     if (className === "language-mermaid" || className === "mermaid") {
       return (
-        <figure className="diagram-block">
-          <figcaption>Mermaid Source</figcaption>
-          <pre className="code-block">
-            <code {...props}>{codeString}</code>
-          </pre>
+        <figure className="diagram-block mermaid-block">
+          <div className="mermaid-header">
+            <figcaption className="mermaid-caption">Mermaid Diagram</figcaption>
+            <div className="mermaid-toolbar" data-mermaid-toolbar>
+              <button type="button" data-mermaid-action="zoom">
+                Zoom
+              </button>
+              <button type="button" data-mermaid-action="copy">
+                Copy
+              </button>
+              <button type="button" data-mermaid-action="svg">
+                SVG
+              </button>
+              <button type="button" data-mermaid-action="png">
+                PNG
+              </button>
+            </div>
+          </div>
+          <div className="mermaid-static" data-mermaid-source {...props}>
+            {codeString}
+          </div>
         </figure>
       );
     }
@@ -269,6 +284,96 @@ function getDocumentStyles() {
       gap: 10px;
       margin: 1.2rem 0;
     }
+    .mermaid-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .mermaid-block {
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.025);
+      padding: 16px;
+    }
+    .mermaid-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .mermaid-toolbar button {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--muted);
+      padding: 6px 10px;
+      font: inherit;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      cursor: pointer;
+    }
+    .mermaid-toolbar button:hover {
+      color: var(--text);
+      border-color: rgba(101, 210, 255, 0.45);
+      background: rgba(101, 210, 255, 0.12);
+    }
+    .mermaid-static {
+      display: flex;
+      justify-content: center;
+      overflow-x: auto;
+      color: var(--muted);
+      min-height: 120px;
+    }
+    .mermaid-static svg {
+      max-width: 100%;
+      height: auto;
+    }
+    .mermaid-static[data-mermaid-error="true"] {
+      display: block;
+    }
+    .mermaid-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: rgba(0, 0, 0, 0.82);
+      backdrop-filter: blur(10px);
+    }
+    .mermaid-modal[data-open="true"] {
+      display: flex;
+    }
+    .mermaid-modal-card {
+      width: min(1200px, 100%);
+      max-height: min(88vh, 100%);
+      overflow: auto;
+      border: 1px solid var(--border);
+      background: #081219;
+      box-shadow: var(--shadow);
+      padding: 20px;
+    }
+    .mermaid-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .mermaid-modal-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .mermaid-modal-stage {
+      overflow: auto;
+    }
+    .mermaid-modal-stage svg {
+      max-width: none;
+      height: auto;
+    }
     .diagram-block figcaption {
       font-size: 11px;
       text-transform: uppercase;
@@ -331,6 +436,359 @@ function getDocumentStyles() {
   `;
 }
 
+function getMermaidEnhancerStyles() {
+  return `
+    .mermaid-header {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      left: 8px;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      pointer-events: none;
+    }
+    .mermaid-block {
+      position: relative;
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      background: rgba(15, 23, 42, 0.45);
+      padding: 16px;
+      border-radius: 16px;
+      margin: 1.2rem 0;
+    }
+    .mermaid-toolbar,
+    .mermaid-modal-actions {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .mermaid-toolbar {
+      pointer-events: auto;
+      padding: 4px;
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      border-radius: 10px;
+      background: rgba(8, 18, 25, 0.88);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+    }
+    .mermaid-toolbar button,
+    .mermaid-modal-actions button {
+      appearance: none;
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      background: rgba(255, 255, 255, 0.04);
+      color: rgba(226, 232, 240, 0.88);
+      min-width: 34px;
+      height: 34px;
+      padding: 0 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+      font: inherit;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      cursor: pointer;
+      transition:
+        background 140ms ease,
+        color 140ms ease,
+        border-color 140ms ease;
+    }
+    .mermaid-toolbar button:hover,
+    .mermaid-modal-actions button:hover {
+      color: #081219;
+      border-color: rgba(101, 210, 255, 0.45);
+      background: #65d2ff;
+    }
+    .mermaid-static {
+      display: flex;
+      justify-content: center;
+      overflow-x: auto;
+      min-height: 120px;
+      padding-top: 34px;
+    }
+    .mermaid-static svg {
+      max-width: 100%;
+      height: auto;
+    }
+    .mermaid-static[data-mermaid-error="true"] {
+      display: block;
+      padding-top: 34px;
+    }
+    .mermaid-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: rgba(0, 0, 0, 0.82);
+      backdrop-filter: blur(10px);
+    }
+    .mermaid-modal[data-open="true"] {
+      display: flex;
+    }
+    .mermaid-modal-card {
+      width: min(1200px, 100%);
+      max-height: min(88vh, 100%);
+      overflow: auto;
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      background: #081219;
+      border-radius: 20px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+      padding: 0;
+    }
+    .mermaid-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 16px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+      background: rgba(8, 18, 25, 0.72);
+      backdrop-filter: blur(12px);
+    }
+    .mermaid-modal-stage {
+      width: 100%;
+      height: min(72vh, 100%);
+      overflow: auto;
+      cursor: grab;
+      padding: 24px;
+    }
+    .mermaid-modal-stage.is-dragging {
+      cursor: grabbing;
+    }
+    .mermaid-modal-canvas {
+      width: fit-content;
+      min-width: 100%;
+      min-height: 100%;
+      margin: 0 auto;
+    }
+    .mermaid-modal-stage svg {
+      max-width: none;
+      height: auto;
+    }
+    .mermaid-caption {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 34px;
+      padding: 0 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(101, 210, 255, 0.2);
+      background: rgba(8, 18, 25, 0.88);
+      color: rgba(226, 232, 240, 0.78);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      pointer-events: auto;
+    }
+  `;
+}
+
+function getMermaidEnhancerScript() {
+  return `
+    <script type="module">
+      const blocks = Array.from(document.querySelectorAll('.mermaid-static[data-mermaid-source]'));
+      if (blocks.length > 0) {
+        const modal = document.createElement('div');
+        modal.className = 'mermaid-modal';
+        modal.innerHTML = [
+          '<div class="mermaid-modal-card">',
+          '  <div class="mermaid-modal-header">',
+          '    <strong>Mermaid Diagram</strong>',
+          '    <div class="mermaid-modal-actions">',
+          '      <button type="button" data-modal-action="zoom-in" aria-label="Zoom in">+</button>',
+          '      <button type="button" data-modal-action="zoom-out" aria-label="Zoom out">-</button>',
+          '      <button type="button" data-modal-action="reset" aria-label="Reset zoom">Reset</button>',
+          '      <button type="button" data-modal-action="close" aria-label="Close viewer">×</button>',
+          '    </div>',
+          '  </div>',
+          '  <div class="mermaid-modal-stage"><div class="mermaid-modal-canvas"></div></div>',
+          '</div>',
+        ].join('');
+        document.body.appendChild(modal);
+
+        const modalStage = modal.querySelector('.mermaid-modal-stage');
+        const modalCanvas = modal.querySelector('.mermaid-modal-canvas');
+        let modalScale = 1;
+        let dragState = null;
+
+        const syncCanvasSize = () => {
+          const svg = modalCanvas.querySelector('svg');
+          if (!svg) return;
+          const rect = svg.getBoundingClientRect();
+          modalCanvas.style.width = Math.max(rect.width, modalStage.clientWidth - 48) + 'px';
+          modalCanvas.style.height = Math.max(rect.height, modalStage.clientHeight - 48) + 'px';
+        };
+
+        const setModalScale = (scale) => {
+          modalScale = scale;
+          const svg = modalCanvas.querySelector('svg');
+          if (svg) {
+            svg.style.transform = 'scale(' + modalScale + ')';
+            svg.style.transformOrigin = 'top left';
+            syncCanvasSize();
+          }
+        };
+
+        const closeModal = () => {
+          modal.dataset.open = 'false';
+          modalCanvas.innerHTML = '';
+          modalCanvas.style.width = '';
+          modalCanvas.style.height = '';
+          modalScale = 1;
+        };
+
+        modal.addEventListener('click', (event) => {
+          if (event.target === modal) closeModal();
+        });
+
+        modal.querySelector('[data-modal-action="close"]').addEventListener('click', closeModal);
+        modal.querySelector('[data-modal-action="zoom-in"]').addEventListener('click', () => setModalScale(modalScale + 0.15));
+        modal.querySelector('[data-modal-action="zoom-out"]').addEventListener('click', () => setModalScale(Math.max(0.3, modalScale - 0.15)));
+        modal.querySelector('[data-modal-action="reset"]').addEventListener('click', () => setModalScale(1));
+
+        modalStage.addEventListener('pointerdown', (event) => {
+          if (event.button !== 0) return;
+          dragState = {
+            x: event.clientX,
+            y: event.clientY,
+            left: modalStage.scrollLeft,
+            top: modalStage.scrollTop,
+          };
+          modalStage.classList.add('is-dragging');
+        });
+
+        window.addEventListener('pointermove', (event) => {
+          if (!dragState) return;
+          modalStage.scrollLeft = dragState.left - (event.clientX - dragState.x);
+          modalStage.scrollTop = dragState.top - (event.clientY - dragState.y);
+        });
+
+        const stopDragging = () => {
+          dragState = null;
+          modalStage.classList.remove('is-dragging');
+        };
+
+        window.addEventListener('pointerup', stopDragging);
+        window.addEventListener('pointercancel', stopDragging);
+
+        const copyText = async (value) => {
+          try {
+            await navigator.clipboard.writeText(value);
+          } catch (error) {
+            console.error('Failed copying Mermaid source', error);
+          }
+        };
+
+        const downloadSvg = (svgMarkup, fileName) => {
+          const blob = new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = fileName;
+          link.click();
+          URL.revokeObjectURL(url);
+        };
+
+        const downloadPng = (svgMarkup, fileName) => {
+          const img = new Image();
+          const blob = new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+
+          img.onload = () => {
+            const width = img.width || 1600;
+            const height = img.height || 900;
+            const canvas = document.createElement('canvas');
+            canvas.width = width * 2;
+            canvas.height = height * 2;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.fillStyle = '#081219';
+              ctx.fillRect(0, 0, canvas.width, canvas.height);
+              ctx.scale(2, 2);
+              ctx.drawImage(img, 0, 0, width, height);
+              const pngUrl = canvas.toDataURL('image/png');
+              const link = document.createElement('a');
+              link.href = pngUrl;
+              link.download = fileName;
+              link.click();
+            }
+            URL.revokeObjectURL(url);
+          };
+
+          img.src = url;
+        };
+
+        const run = async () => {
+          try {
+            const mermaid = (await import('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs')).default;
+            mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'loose' });
+
+            for (const [index, block] of blocks.entries()) {
+              const source = block.textContent || '';
+              block.dataset.mermaidSource = source;
+
+              try {
+                const { svg, bindFunctions } = await mermaid.render('mermaid-static-series-' + index, source);
+                block.innerHTML = svg;
+                bindFunctions?.(block);
+              } catch (error) {
+                block.setAttribute('data-mermaid-error', 'true');
+                block.innerHTML = '<pre class="code-block"><code></code></pre>';
+                const code = block.querySelector('code');
+                if (code) code.textContent = source;
+                console.error('Failed rendering Mermaid diagram', error);
+              }
+
+              const figure = block.closest('.mermaid-block');
+              const toolbar = figure?.querySelector('[data-mermaid-toolbar]');
+              const getSvgMarkup = () => block.innerHTML;
+              const safeBaseName = 'mermaid-diagram-' + String(index + 1).padStart(2, '0');
+
+              toolbar?.addEventListener('click', async (event) => {
+                const action = event.target?.closest('button')?.dataset?.mermaidAction;
+                if (!action) return;
+
+                if (action === 'copy') {
+                  await copyText(block.dataset.mermaidSource || '');
+                  return;
+                }
+
+                if (action === 'svg') {
+                  downloadSvg(getSvgMarkup(), safeBaseName + '.svg');
+                  return;
+                }
+
+                if (action === 'png') {
+                  downloadPng(getSvgMarkup(), safeBaseName + '.png');
+                  return;
+                }
+
+                if (action === 'zoom') {
+                  modalCanvas.innerHTML = getSvgMarkup();
+                  modal.dataset.open = 'true';
+                  setModalScale(1);
+                  modalStage.scrollTop = 0;
+                  modalStage.scrollLeft = 0;
+                }
+              });
+            }
+          } catch (error) {
+            console.error('Failed loading Mermaid runtime', error);
+          }
+        };
+
+        run();
+      }
+    </script>
+  `;
+}
+
 function formatDateLabel(value: string) {
   return value || "Undated";
 }
@@ -355,7 +813,7 @@ async function renderDocument({
   children: ReactNode;
   shellOutputRoot?: string;
 }) {
-  const contentHtml = renderToStaticMarkup(children);
+  const contentHtml = `${renderToStaticMarkup(children)}${getMermaidEnhancerScript()}`;
 
   if (shellOutputRoot) {
     return renderStaticAppShellDocument({
@@ -363,6 +821,7 @@ async function renderDocument({
       title,
       description,
       contentHtml,
+      headHtml: `<style>${getMermaidEnhancerStyles()}</style>`,
     });
   }
 
@@ -665,7 +1124,7 @@ export async function buildStaticSeriesOutput({
           : null;
 
       const audioEntry = getSeriesPartAudioEntry(seriesSlug, part.slug);
-      const article = renderCompiledMdx(compiledMdx, mdxComponents);
+      const article = renderCompiledMdx(compiledMdx, staticMdxComponents);
       const html = await renderPartPage({
         series,
         part,
