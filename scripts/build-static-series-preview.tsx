@@ -589,6 +589,92 @@ function getMermaidEnhancerStyles() {
   `;
 }
 
+function getReadingModeEnhancerStyles() {
+  return `
+    body[data-static-reading-mode="true"] [data-reading-sidebar],
+    body[data-static-reading-mode="true"] [data-reading-toc],
+    body[data-static-reading-mode="true"] [data-reading-mobile-nav],
+    body[data-static-reading-mode="true"] [data-reading-highlights],
+    body[data-static-reading-mode="true"] [data-reading-tags],
+    body[data-static-reading-mode="true"] [data-reading-recap],
+    body[data-static-reading-mode="true"] [data-reading-lesson-meta] {
+      display: none !important;
+    }
+    body[data-static-reading-mode="true"] [data-reading-layout] {
+      display: block !important;
+      max-width: 980px !important;
+      padding-bottom: 112px;
+    }
+    body[data-static-reading-mode="true"] [data-reading-main] {
+      width: 100%;
+      max-width: 78ch !important;
+      margin-inline: auto;
+    }
+    body[data-static-reading-mode="true"] [data-reading-article-shell] {
+      margin-inline: auto;
+      border-color: rgba(101, 210, 255, 0.12) !important;
+      background: rgba(7, 17, 22, 0.66) !important;
+      padding: 28px 20px !important;
+    }
+    body[data-static-reading-mode="true"] [data-reading-prose] {
+      max-width: 72ch !important;
+      margin-inline: auto;
+      line-height: 2 !important;
+    }
+    body[data-static-reading-mode="true"] [data-reading-chrome][data-chrome-hidden="true"] {
+      transform: translateY(calc(-100% - 1rem));
+    }
+    .reading-resume-banner {
+      margin: 0 0 16px;
+      border: 1px solid rgba(101, 210, 255, 0.2);
+      background: rgba(101, 210, 255, 0.08);
+      padding: 14px;
+    }
+    .reading-resume-banner__row {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .reading-resume-banner__eyebrow {
+      margin: 0 0 6px;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      color: #65d2ff;
+    }
+    .reading-resume-banner__text {
+      margin: 0;
+      color: #9fb7c3;
+      font-size: 14px;
+      line-height: 1.7;
+    }
+    .reading-resume-banner__button {
+      appearance: none;
+      border: 1px solid rgba(101, 210, 255, 0.3);
+      background: rgba(101, 210, 255, 0.1);
+      color: #65d2ff;
+      padding: 10px 14px;
+      font: inherit;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      cursor: pointer;
+      align-self: flex-start;
+    }
+    .reading-resume-banner__button:hover {
+      background: #65d2ff;
+      color: #081219;
+    }
+    @media (min-width: 768px) {
+      .reading-resume-banner__row {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+      }
+    }
+  `;
+}
+
 function getMermaidEnhancerScript() {
   return `
     <script type="module">
@@ -789,6 +875,149 @@ function getMermaidEnhancerScript() {
   `;
 }
 
+function getReadingModeEnhancerScript() {
+  return `
+    <script>
+      (() => {
+        const root = document.querySelector('[data-series-part-page]');
+        if (!root) return;
+
+        const seriesSlug = root.getAttribute('data-series-slug') || '';
+        const partSlug = root.getAttribute('data-part-slug') || '';
+        const modeKey = 'series-reading-mode:' + seriesSlug;
+        const progressKey = 'series-reading-progress:' + seriesSlug + ':' + partSlug;
+        const toggleButtons = Array.from(document.querySelectorAll('[data-reading-toggle]'));
+        const progressBar = document.querySelector('[data-reading-progress-bar]');
+        const chrome = document.querySelector('[data-reading-chrome]');
+        const main = document.querySelector('[data-reading-main]');
+        let isReadingMode = false;
+        let lastScrollY = window.scrollY;
+        let ticking = false;
+        let saveTimeout = null;
+        let resumeOffset = null;
+        let resumeBanner = null;
+
+        try {
+          isReadingMode = window.localStorage.getItem(modeKey) === 'true';
+          const saved = Number(window.localStorage.getItem(progressKey));
+          if (Number.isFinite(saved) && saved > 240) {
+            resumeOffset = saved;
+          }
+        } catch {}
+
+        const setModeLabel = () => {
+          toggleButtons.forEach((button) => {
+            button.textContent = isReadingMode ? 'Exit Reading Mode' : 'Enter Reading Mode';
+          });
+        };
+
+        const applyReadingMode = () => {
+          document.body.dataset.staticReadingMode = isReadingMode ? 'true' : 'false';
+          if (chrome) {
+            chrome.dataset.chromeHidden = 'false';
+          }
+          setModeLabel();
+          try {
+            window.localStorage.setItem(modeKey, isReadingMode ? 'true' : 'false');
+          } catch {}
+        };
+
+        const removeResumeBanner = () => {
+          if (resumeBanner) {
+            resumeBanner.remove();
+            resumeBanner = null;
+          }
+        };
+
+        const maybeRenderResumeBanner = () => {
+          removeResumeBanner();
+          if (resumeOffset === null || !chrome || !main) return;
+          if (Math.abs(window.scrollY - resumeOffset) < 120 || window.scrollY > resumeOffset) {
+            resumeOffset = null;
+            return;
+          }
+
+          resumeBanner = document.createElement('div');
+          resumeBanner.className = 'reading-resume-banner';
+          resumeBanner.innerHTML = [
+            '<div class="reading-resume-banner__row">',
+            '  <div>',
+            '    <p class="reading-resume-banner__eyebrow">Resume Reading</p>',
+            '    <p class="reading-resume-banner__text">Continue this lesson from roughly where you stopped last time.</p>',
+            '  </div>',
+            '  <button type="button" class="reading-resume-banner__button">Resume From Last Position</button>',
+            '</div>',
+          ].join('');
+
+          resumeBanner.querySelector('button')?.addEventListener('click', () => {
+            if (resumeOffset === null) return;
+            window.scrollTo({ top: resumeOffset, behavior: 'smooth' });
+            resumeOffset = null;
+            removeResumeBanner();
+          });
+
+          chrome.insertAdjacentElement('afterend', resumeBanner);
+        };
+
+        const persistProgress = (scrollY) => {
+          try {
+            window.localStorage.setItem(progressKey, String(Math.max(0, Math.round(scrollY))));
+          } catch {}
+        };
+
+        const updateScrollUi = () => {
+          const scrollY = window.scrollY;
+          const totalScrollable = Math.max(document.documentElement.scrollHeight - window.innerHeight, 1);
+          const progress = Math.min(Math.max(scrollY / totalScrollable, 0), 1);
+          const delta = scrollY - lastScrollY;
+
+          if (progressBar) {
+            progressBar.style.width = String(progress * 100) + '%';
+          }
+
+          if (chrome) {
+            const shouldHide = isReadingMode && scrollY >= 96 && delta > 0;
+            chrome.dataset.chromeHidden = shouldHide ? 'true' : 'false';
+          }
+
+          if (resumeOffset !== null && (Math.abs(scrollY - resumeOffset) < 120 || scrollY > resumeOffset)) {
+            resumeOffset = null;
+            removeResumeBanner();
+          }
+
+          lastScrollY = scrollY;
+
+          if (saveTimeout) {
+            window.clearTimeout(saveTimeout);
+          }
+          saveTimeout = window.setTimeout(() => persistProgress(scrollY), 180);
+          ticking = false;
+        };
+
+        const onScroll = () => {
+          if (ticking) return;
+          ticking = true;
+          window.requestAnimationFrame(updateScrollUi);
+        };
+
+        toggleButtons.forEach((button) => {
+          button.addEventListener('click', (event) => {
+            event.preventDefault();
+            isReadingMode = !isReadingMode;
+            applyReadingMode();
+            onScroll();
+          });
+        });
+
+        applyReadingMode();
+        maybeRenderResumeBanner();
+        updateScrollUi();
+        window.addEventListener('scroll', onScroll, { passive: true });
+      })();
+    </script>
+  `;
+}
+
 function formatDateLabel(value: string) {
   return value || "Undated";
 }
@@ -813,7 +1042,7 @@ async function renderDocument({
   children: ReactNode;
   shellOutputRoot?: string;
 }) {
-  const contentHtml = `${renderToStaticMarkup(children)}${getMermaidEnhancerScript()}`;
+  const contentHtml = `${renderToStaticMarkup(children)}${getMermaidEnhancerScript()}${getReadingModeEnhancerScript()}`;
 
   if (shellOutputRoot) {
     return renderStaticAppShellDocument({
@@ -821,7 +1050,7 @@ async function renderDocument({
       title,
       description,
       contentHtml,
-      headHtml: `<style>${getMermaidEnhancerStyles()}</style>`,
+      headHtml: `<style>${getMermaidEnhancerStyles()}${getReadingModeEnhancerStyles()}</style>`,
     });
   }
 
