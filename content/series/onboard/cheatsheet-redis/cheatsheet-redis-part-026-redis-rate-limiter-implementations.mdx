@@ -1,0 +1,1428 @@
+---
+title: "Redis Rate Limiter Implementations"
+description: "Production-oriented Redis rate limiter implementation patterns: INCR+EXPIRE fixed window, Lua atomicity, sliding log with sorted set, sliding window counter, token bucket, leaky bucket, TTL handling, clock source, Retry-After, 429 responses, memory growth, fairness, performance, and PR review checklist."
+order: 26
+partTitle: "Redis Rate Limiter Implementations"
+tags:
+  - redis
+  - rate-limiter
+  - lua
+  - sorted-set
+  - token-bucket
+  - java
+  - jax-rs
+  - production
+---
+
+# Part 026 — Redis Rate Limiter Implementations
+
+Part 025 built the mental model.
+
+This part focuses on implementation.
+
+A Redis rate limiter must be:
+
+```text
+atomic enough
+fast enough
+bounded in memory
+observable
+safe under retries
+safe under concurrency
+explicit about failure behavior
+```
+
+The most common implementation mistake is assuming that a sequence of Redis commands is automatically safe.
+
+Redis executes each command atomically, but a multi-command algorithm is not atomic unless it is wrapped in a transaction, Lua script, Redis Function, or carefully designed single-command pattern.
+
+For rate limiting, this matters a lot.
+
+---
+
+## 1. Implementation Decision Tree
+
+Use this as a starting point.
+
+| Need | Common implementation |
+|---|---|
+| Simple coarse API limit | Fixed window counter |
+| Simple but atomic counter+TTL | Lua fixed window |
+| Accurate rolling window | Sorted set sliding log |
+| Good API burst behavior | Token bucket with Lua |
+| Smooth downstream throughput | Leaky bucket with Lua or queue-based throttle |
+| Very high traffic approximate global limit | Sharded counters or local + distributed hybrid |
+| Per-tenant/user business quota | Fixed/sliding window with config and audit |
+| Security-sensitive attempt limit | Conservative limiter with fail-closed/degraded mode |
+
+There is no universal best limiter.
+
+A limiter is correct only relative to the protected resource and expected traffic shape.
+
+---
+
+## 2. Shared Interface in Java
+
+Avoid scattering Redis commands directly across JAX-RS resources.
+
+Use a small abstraction.
+
+```java
+public interface RateLimiter {
+    RateLimitDecision check(RateLimitRequest request);
+}
+
+public record RateLimitRequest(
+    String limitName,
+    String subjectType,
+    String subjectId,
+    String action,
+    int cost,
+    long nowEpochMillis
+) {}
+
+public record RateLimitDecision(
+    boolean allowed,
+    String limitName,
+    long limit,
+    long remaining,
+    long retryAfterMillis,
+    long resetEpochMillis,
+    String reason
+) {}
+```
+
+Why this matters:
+
+- isolates Redis client details
+- centralizes key naming
+- centralizes fail-open/fail-closed behavior
+- enables metrics and logging
+- enables unit and integration testing
+- prevents each endpoint from inventing its own limiter
+
+A limiter is infrastructure code.
+
+Treat it as a reusable component.
+
+---
+
+## 3. JAX-RS Integration Pattern
+
+A common placement is a request filter.
+
+```java
+@Provider
+@Priority(Priorities.AUTHORIZATION + 10)
+public class RateLimitFilter implements ContainerRequestFilter {
+    private final RateLimiter limiter;
+
+    @Override
+    public void filter(ContainerRequestContext ctx) {
+        RateLimitRequest request = buildRequest(ctx);
+        RateLimitDecision decision = limiter.check(request);
+
+        if (!decision.allowed()) {
+            ctx.abortWith(Response.status(429)
+                .header("Retry-After", Math.max(1, decision.retryAfterMillis() / 1000))
+                .entity(new ErrorBody(
+                    "rate_limit_exceeded",
+                    decision.limitName(),
+                    decision.retryAfterMillis()))
+                .build());
+        }
+    }
+}
+```
+
+This is suitable when the limiter maps cleanly to request metadata.
+
+For domain-specific expensive operations, put the limiter in the service layer instead.
+
+Example:
+
+```text
+QuoteCalculationService.calculate()
+  -> check per-tenant calculation limiter
+  -> check global calculation limiter
+  -> load quote/catalog data
+  -> run calculation
+```
+
+Do not force all limits into HTTP filters if the protected resource is inside the domain flow.
+
+---
+
+## 4. Redis Key Design for Limiters
+
+A good limiter key is stable, bounded, non-sensitive, and operationally readable.
+
+Example:
+
+```text
+rl:{env}:{service}:{limitName}:{subjectType}:{subjectHash}:{window}
+```
+
+For Redis Cluster, hash tags may be needed when a Lua script uses multiple keys.
+
+Example:
+
+```text
+rl:{tenant:t-123}:quote-calc:tokens
+rl:{tenant:t-123}:quote-calc:timestamp
+```
+
+The part inside `{}` determines the cluster slot.
+
+Use this carefully.
+
+Too much hash-tag grouping can create slot hotspots.
+
+Rules:
+
+- do not put raw PII in key names
+- normalize endpoint/action names
+- use hashed subject IDs if needed
+- include window only for fixed-window counters
+- always apply TTL to ephemeral limiter state
+- avoid arbitrary query strings in key names
+- document every limiter key family
+
+---
+
+## 5. Fixed Window with INCR + EXPIRE
+
+The simplest implementation:
+
+```text
+key = rl:prod:quote-api:quote-calc:tenant:t-123:20260711T1031
+count = INCR key
+if count == 1:
+    EXPIRE key 60
+if count <= limit:
+    allow
+else:
+    reject
+```
+
+Pseudo Java:
+
+```java
+long count = redis.incr(key);
+if (count == 1) {
+    redis.expire(key, 60);
+}
+boolean allowed = count <= limit;
+```
+
+This is easy to understand.
+
+But it has a subtle atomicity problem.
+
+If the process crashes after `INCR` but before `EXPIRE`, the key may live forever.
+
+```text
+INCR succeeds
+application crashes
+EXPIRE never runs
+key has no TTL
+```
+
+That can permanently block or distort the limiter.
+
+This is why fixed window should usually be implemented with Lua or a Redis transaction pattern.
+
+---
+
+## 6. Fixed Window with Lua
+
+Lua makes the increment and TTL assignment atomic from Redis' perspective.
+
+Example script:
+
+```lua
+local key = KEYS[1]
+local limit = tonumber(ARGV[1])
+local ttlSeconds = tonumber(ARGV[2])
+
+local current = redis.call('INCR', key)
+
+if current == 1 then
+  redis.call('EXPIRE', key, ttlSeconds)
+end
+
+local ttl = redis.call('TTL', key)
+local allowed = 0
+local remaining = 0
+
+if current <= limit then
+  allowed = 1
+  remaining = limit - current
+end
+
+return { allowed, current, remaining, ttl }
+```
+
+Result interpretation:
+
+```text
+allowed   -> 1 or 0
+current   -> current count in window
+remaining -> remaining requests
+ttl       -> seconds until reset
+```
+
+This avoids the missing TTL bug.
+
+It is still fixed window, so boundary burst remains.
+
+---
+
+## 7. Fixed Window Response Mapping
+
+If rejected:
+
+```text
+HTTP 429 Too Many Requests
+Retry-After: ttl
+```
+
+Example response body:
+
+```json
+{
+  "error": "rate_limit_exceeded",
+  "limitName": "quote-calculate-per-tenant",
+  "retryAfterSeconds": 17,
+  "correlationId": "c-abc"
+}
+```
+
+For internal APIs, include enough metadata to debug.
+
+For public/security-sensitive APIs, avoid exposing sensitive subject information.
+
+---
+
+## 8. Fixed Window Strengths and Weaknesses
+
+Strengths:
+
+- cheap
+- simple
+- low memory
+- easy to operate
+- good for coarse limits
+
+Weaknesses:
+
+- window boundary burst
+- unfair near boundaries
+- less suitable for precise downstream protection
+- one key per subject per window
+
+Use fixed window for:
+
+- basic per-minute API guardrail
+- coarse per-tenant quota
+- login attempt limits with conservative thresholds
+- low-cost endpoints
+
+Avoid it for:
+
+- strict fairness
+- expensive operations with narrow capacity margin
+- high-risk abuse endpoints requiring rolling accuracy
+
+---
+
+## 9. Sliding Log with Sorted Set
+
+Sliding log stores each request event in a sorted set.
+
+```text
+key    = rl:prod:quote-api:quote-calc:tenant:t-123
+score  = nowEpochMillis
+member = requestId or unique timestamp suffix
+```
+
+Algorithm:
+
+```text
+remove old entries before now - window
+count current entries
+if count + cost <= limit:
+    add current event(s)
+    expire key
+    allow
+else:
+    reject
+```
+
+Redis commands:
+
+```redis
+ZREMRANGEBYSCORE key 0 cutoff
+ZCARD key
+ZADD key now member
+EXPIRE key ttl
+```
+
+This must be atomic.
+
+Use Lua.
+
+---
+
+## 10. Sliding Log Lua Script
+
+Example:
+
+```lua
+local key = KEYS[1]
+local now = tonumber(ARGV[1])
+local windowMillis = tonumber(ARGV[2])
+local limit = tonumber(ARGV[3])
+local member = ARGV[4]
+local ttlSeconds = tonumber(ARGV[5])
+
+local cutoff = now - windowMillis
+
+redis.call('ZREMRANGEBYSCORE', key, 0, cutoff)
+
+local current = redis.call('ZCARD', key)
+
+if current < limit then
+  redis.call('ZADD', key, now, member)
+  redis.call('EXPIRE', key, ttlSeconds)
+  local remaining = limit - current - 1
+  return {1, current + 1, remaining, 0}
+else
+  local oldest = redis.call('ZRANGE', key, 0, 0, 'WITHSCORES')
+  local retryAfter = 0
+  if oldest[2] ~= nil then
+    retryAfter = tonumber(oldest[2]) + windowMillis - now
+    if retryAfter < 0 then retryAfter = 0 end
+  end
+  return {0, current, 0, retryAfter}
+end
+```
+
+This provides accurate rolling-window behavior.
+
+But it stores one entry per accepted request.
+
+Memory grows with request volume.
+
+Cleanup must be reliable.
+
+---
+
+## 11. Sliding Log Member Design
+
+Sorted set members must be unique.
+
+If two requests use the same member, `ZADD` overwrites the existing member instead of adding a new event.
+
+Bad member:
+
+```text
+member = nowMillis
+```
+
+Two requests in the same millisecond can collide.
+
+Better:
+
+```text
+member = nowMillis + ":" + requestId
+```
+
+or:
+
+```text
+member = nowMillis + ":" + randomSuffix
+```
+
+But do not use unbounded large random payloads.
+
+Keep members small.
+
+---
+
+## 12. Sliding Log Memory Control
+
+Sliding log can be expensive.
+
+Example:
+
+```text
+10,000 tenants
+100 accepted requests/minute each
+60-minute window
+= 60,000,000 sorted set entries
+```
+
+That may be too much.
+
+Controls:
+
+- keep windows short
+- use fixed/sliding counter for high-volume subjects
+- remove old entries every check
+- set TTL slightly above window
+- monitor memory and key cardinality
+- avoid sliding log for global high-QPS limits
+
+Sliding log is accurate, but accuracy has a cost.
+
+---
+
+## 13. Sliding Window Counter
+
+Sliding window counter approximates rolling behavior with two counters.
+
+Example:
+
+```text
+current fixed window count
+previous fixed window count
+weighted previous count based on overlap
+```
+
+Estimated count:
+
+```text
+estimated = currentCount + previousCount * overlapRatio
+```
+
+Strengths:
+
+- cheaper than sliding log
+- smoother than fixed window
+- bounded memory
+
+Weaknesses:
+
+- approximate
+- implementation more complex
+- retry-after calculation less exact
+
+This is often a good middle ground for API gateway-style limits.
+
+Implementation usually requires two keys and time math.
+
+In Redis Cluster, ensure both keys share the same hash slot if used in one Lua script.
+
+---
+
+## 14. Token Bucket Model
+
+Token bucket stores:
+
+```text
+tokens available
+last refill timestamp
+```
+
+Each request:
+
+```text
+refill tokens based on elapsed time
+if tokens >= cost:
+    consume cost
+    allow
+else:
+    reject with retry-after
+```
+
+Parameters:
+
+```text
+capacity      -> max burst
+refillRate    -> tokens per second
+cost          -> tokens consumed per request
+now           -> time source
+```
+
+Example:
+
+```text
+capacity: 100 tokens
+refillRate: 10 tokens/second
+cost: 1 token
+```
+
+This allows a burst of 100, then steady 10/sec.
+
+---
+
+## 15. Token Bucket Lua Script
+
+One-key implementation using a Redis hash:
+
+```text
+key fields:
+  tokens
+  updatedAt
+```
+
+Script:
+
+```lua
+local key = KEYS[1]
+local capacity = tonumber(ARGV[1])
+local refillRatePerMs = tonumber(ARGV[2])
+local cost = tonumber(ARGV[3])
+local now = tonumber(ARGV[4])
+local ttlSeconds = tonumber(ARGV[5])
+
+local bucket = redis.call('HMGET', key, 'tokens', 'updatedAt')
+local tokens = tonumber(bucket[1])
+local updatedAt = tonumber(bucket[2])
+
+if tokens == nil then
+  tokens = capacity
+  updatedAt = now
+end
+
+local elapsed = now - updatedAt
+if elapsed < 0 then
+  elapsed = 0
+end
+
+local refill = elapsed * refillRatePerMs
+tokens = math.min(capacity, tokens + refill)
+
+local allowed = 0
+local retryAfter = 0
+
+if tokens >= cost then
+  tokens = tokens - cost
+  allowed = 1
+else
+  local missing = cost - tokens
+  retryAfter = math.ceil(missing / refillRatePerMs)
+end
+
+redis.call('HMSET', key, 'tokens', tokens, 'updatedAt', now)
+redis.call('EXPIRE', key, ttlSeconds)
+
+return { allowed, tokens, retryAfter }
+```
+
+Notes:
+
+- `refillRatePerMs` avoids integer-only per-second refill.
+- Floating point behavior in Lua should be tested carefully.
+- If exact integer arithmetic is required, store scaled units.
+
+Example scaled unit:
+
+```text
+1 token = 1000 internal units
+```
+
+---
+
+## 16. Token Bucket TTL
+
+TTL should be long enough to preserve bucket state while active, but short enough to clean idle subjects.
+
+A common TTL:
+
+```text
+ceil(capacity / refillRate) * 2
+```
+
+Meaning:
+
+```text
+time to fully refill from empty, multiplied by a safety factor
+```
+
+Example:
+
+```text
+capacity = 100
+refill = 10/sec
+full refill = 10 sec
+TTL = 20-60 sec depending on usage
+```
+
+For business quotas with longer windows, TTL may be longer.
+
+Do not leave token bucket keys without TTL unless intentionally persistent.
+
+---
+
+## 17. Leaky Bucket Model
+
+Leaky bucket stores a theoretical next allowed time or queue level.
+
+A simple variant is Generic Cell Rate Algorithm style.
+
+Concept:
+
+```text
+each accepted request moves theoretical arrival time forward
+if request arrives too early beyond burst tolerance, reject
+```
+
+This smooths rate more strictly than token bucket.
+
+Useful when downstream capacity must not receive bursty traffic.
+
+Example use cases:
+
+- external billing API
+- legacy SOAP integration
+- fragile partner API
+- expensive calculation service with narrow concurrency budget
+
+For HTTP request paths, pure rejection is usually simpler than queueing.
+
+If you actually delay requests, be careful not to tie up request threads.
+
+---
+
+## 18. Clock Source
+
+Limiter algorithms need time.
+
+Options:
+
+```text
+application clock
+Redis TIME command
+```
+
+Application clock is cheaper but can suffer from skew across pods.
+
+Redis TIME is centralized but adds command/script complexity.
+
+For fixed window, app time is usually acceptable if NTP is reliable.
+
+For token bucket/sliding algorithms across many pods, clock skew can affect fairness.
+
+Recommendation:
+
+- use epoch milliseconds consistently
+- ensure pod/node time synchronization
+- clamp negative elapsed time to zero
+- consider Redis TIME for strict shared-clock behavior
+- test behavior under clock skew assumptions
+
+Do not mix local time zone formatting into limiter logic.
+
+Use epoch time.
+
+---
+
+## 19. Retry-After Calculation
+
+`Retry-After` should be useful to clients.
+
+For fixed window:
+
+```text
+retryAfter = TTL of current window key
+```
+
+For sliding log:
+
+```text
+retryAfter = oldestEventTimestamp + window - now
+```
+
+For token bucket:
+
+```text
+retryAfter = missingTokens / refillRate
+```
+
+For leaky bucket:
+
+```text
+retryAfter = theoreticalAllowedTime - now
+```
+
+Be conservative.
+
+If unsure, round up.
+
+```java
+long retryAfterSeconds = Math.max(1, (retryAfterMillis + 999) / 1000);
+```
+
+Returning `Retry-After: 0` on rejection is usually not helpful.
+
+---
+
+## 20. Weighted Cost
+
+Some operations cost more.
+
+Token bucket naturally supports cost.
+
+```text
+GET quote           cost 1
+POST calculate      cost 10
+POST bulk validate  cost 50
+```
+
+For fixed window, cost can be implemented with `INCRBY`.
+
+Lua fixed window with cost:
+
+```lua
+local current = redis.call('INCRBY', key, cost)
+```
+
+But think about rejection semantics.
+
+If `INCRBY` pushes count over limit, you have already counted the rejected request.
+
+That may be acceptable for abuse prevention.
+
+It may be unfair for business quota.
+
+Alternative:
+
+```text
+read current
+if current + cost <= limit:
+    increment
+else:
+    reject without increment
+```
+
+That requires Lua for atomicity.
+
+---
+
+## 21. Should Rejected Requests Count?
+
+This is a design decision.
+
+Option A:
+
+```text
+Rejected requests count against the limiter.
+```
+
+Good for abuse prevention.
+
+A client hammering the API keeps itself limited.
+
+Option B:
+
+```text
+Rejected requests do not count.
+```
+
+Good for fair business quota.
+
+A client that retries too early does not consume future quota.
+
+Be explicit.
+
+Do not let implementation accidentally decide this.
+
+---
+
+## 22. Redis Cluster Considerations
+
+Lua scripts in Redis Cluster can only access keys in the same hash slot.
+
+If a limiter script uses multiple keys, use hash tags.
+
+Example:
+
+```text
+rl:{tenant:t-123}:quote-calc:current
+rl:{tenant:t-123}:quote-calc:previous
+```
+
+But this groups all tenant limiter keys into the same slot.
+
+That may be good for multi-key script correctness.
+
+It may be bad if one tenant is very hot.
+
+For single-key limiters, Cluster is simpler.
+
+Prefer single-key hash structures when possible.
+
+Example:
+
+```text
+HSET rl:{tenant:t-123}:quote-calc tokens updatedAt
+```
+
+---
+
+## 23. Redis Client Timeout and Retry
+
+Limiter calls are on the request path.
+
+Redis timeout must be short and deliberate.
+
+Example behavior:
+
+```text
+Redis timeout after 30-50 ms for low-latency API path
+fallback decision based on limit policy
+record metric
+continue or reject
+```
+
+Avoid unbounded retries.
+
+Dangerous pattern:
+
+```text
+HTTP request -> limiter Redis timeout -> client retries Redis 3 times -> request latency spikes -> caller retries HTTP -> Redis load grows
+```
+
+Retries can amplify incidents.
+
+Use:
+
+- low Redis timeout
+- bounded retry or no retry for limiter path
+- circuit breaker
+- local fallback limiter if needed
+- explicit fail-open/fail-closed policy
+
+---
+
+## 24. Fail-Open Implementation
+
+Fail-open example:
+
+```java
+try {
+    return redisLimiter.check(request);
+} catch (RedisTimeoutException ex) {
+    metrics.increment("rate_limiter.fallback", "mode", "fail_open");
+    log.warn("Rate limiter unavailable; allowing request", kvs(request, ex));
+    return RateLimitDecision.allowedFallback(request.limitName());
+}
+```
+
+Use for lower-risk operations where availability matters more than strict enforcement.
+
+But still emit metrics and logs.
+
+A silent fail-open limiter is an invisible protection failure.
+
+---
+
+## 25. Fail-Closed Implementation
+
+Fail-closed example:
+
+```java
+try {
+    return redisLimiter.check(request);
+} catch (RedisTimeoutException ex) {
+    metrics.increment("rate_limiter.fallback", "mode", "fail_closed");
+    log.warn("Rate limiter unavailable; rejecting request", kvs(request, ex));
+    return RateLimitDecision.rejectedFallback(request.limitName());
+}
+```
+
+Use carefully.
+
+Fail-closed makes Redis part of endpoint availability.
+
+For security-sensitive endpoints, this may be correct.
+
+For revenue-critical quote/order flows, it may create unacceptable customer impact.
+
+---
+
+## 26. Local + Distributed Hybrid
+
+A hybrid limiter reduces Redis load.
+
+Example:
+
+```text
+local limiter allows at most 50 req/sec/pod
+Redis limiter enforces 500 req/sec/tenant globally
+```
+
+Flow:
+
+```text
+check local limiter
+if local rejected -> reject immediately
+check Redis distributed limiter
+if Redis rejected -> reject
+allow
+```
+
+Benefits:
+
+- reduces Redis pressure during obvious floods
+- protects each pod
+- preserves global tenant fairness
+
+Risks:
+
+- local limit multiplies by pod count
+- local rejection may be stricter during uneven load
+- behavior changes with HPA scaling
+
+Document both layers.
+
+---
+
+## 27. Protecting PostgreSQL-Heavy Operations
+
+For DB-heavy endpoints, the limiter should run before expensive DB work.
+
+```text
+JAX-RS resource
+  -> authenticate
+  -> identify tenant/user
+  -> rate limit
+  -> open DB transaction / execute query
+```
+
+If limiter runs after DB work, it does not protect PostgreSQL.
+
+For MyBatis/JDBC paths, avoid opening a connection before limiter unless required for authentication/authorization.
+
+Review transaction boundary:
+
+```text
+Should this limiter be checked before or after authorization?
+Should unauthorized requests count?
+Should validation failures count?
+Should DB failures consume quota?
+```
+
+There is no universal answer.
+
+But it must be deliberate.
+
+---
+
+## 28. Protecting Kafka/RabbitMQ Producers
+
+If an HTTP endpoint enqueues messages, rate limit before enqueue.
+
+```text
+HTTP request
+  -> rate limit tenant enqueue rate
+  -> persist command/outbox if needed
+  -> publish/enqueue
+```
+
+For direct Kafka/RabbitMQ production, rate limiting can prevent broker pressure and downstream consumer overload.
+
+But if the operation is business-critical, do not rely only on Redis.
+
+Consider:
+
+- durable outbox
+- idempotency key
+- queue depth monitoring
+- consumer-side throttling
+- DLQ replay controls
+
+A producer limiter does not protect consumers from replay storms.
+
+Consumer-side limiter may also be required.
+
+---
+
+## 29. Consumer-Side Rate Limiting
+
+For workers and consumers:
+
+```text
+Kafka/RabbitMQ consumer
+  -> read message
+  -> check downstream limiter
+  -> call external API or DB-heavy operation
+  -> ack/nack based on result
+```
+
+Be careful.
+
+If a consumer gets rate-limited, what happens to the message?
+
+Options:
+
+- pause consumer
+- delay retry
+- requeue with backoff
+- write to delayed queue
+- keep unacked temporarily
+- move to retry topic/queue
+
+Do not create a tight loop:
+
+```text
+consume -> rate limited -> nack immediately -> consume same message -> rate limited -> ...
+```
+
+That becomes a retry storm.
+
+---
+
+## 30. Memory Growth Patterns
+
+Limiter memory grows through:
+
+- missing TTL
+- high-cardinality subjects
+- sliding log entries
+- long windows
+- rejected requests counted forever
+- arbitrary endpoint names
+- per-request IDs in keys instead of members
+
+Detection:
+
+```redis
+INFO keyspace
+INFO memory
+SCAN with prefix sampling
+MEMORY USAGE sampled keys
+```
+
+Production-safe approach:
+
+- sample, do not full-scan aggressively
+- use metrics if available
+- estimate key family cardinality
+- inspect TTL distribution
+- inspect large sorted sets
+
+A limiter should have a memory budget.
+
+---
+
+## 31. Performance Considerations
+
+Fixed window:
+
+```text
+O(1), low memory, boundary burst
+```
+
+Sliding log:
+
+```text
+O(log N) for ZADD/removal, memory per request event
+```
+
+Token bucket:
+
+```text
+O(1), small state, more script math
+```
+
+Leaky bucket:
+
+```text
+O(1), small state, strict smoothing
+```
+
+Lua script:
+
+```text
+atomic but blocks Redis while running
+```
+
+Keep scripts short.
+
+Avoid loops over large data.
+
+Never use Lua to scan large keyspaces.
+
+---
+
+## 32. Observability Metrics
+
+Metrics to emit from Java service:
+
+```text
+rate_limiter_allowed_total{limitName, action}
+rate_limiter_rejected_total{limitName, action}
+rate_limiter_error_total{limitName, errorType}
+rate_limiter_fallback_total{limitName, mode}
+rate_limiter_redis_latency_ms{limitName}
+rate_limiter_retry_after_ms{limitName}
+```
+
+Redis-side metrics:
+
+```text
+command latency
+commandstats for EVAL/EVALSHA/INCR/ZADD/ZREMRANGEBYSCORE
+used_memory
+evicted_keys
+expired_keys
+connected_clients
+slowlog
+```
+
+Avoid high-cardinality labels like raw tenant ID, user ID, IP, or endpoint path with IDs.
+
+Use normalized action names.
+
+---
+
+## 33. Logging Rejections
+
+Log enough to debug, but not enough to leak sensitive data.
+
+Good rejection log fields:
+
+```text
+correlationId
+limitName
+subjectType
+subjectHash or internal ID
+action
+allowed=false
+retryAfterMillis
+remaining
+redisLatencyMillis
+fallback=false
+```
+
+Avoid:
+
+- raw email
+- raw access token
+- full URL with query string
+- PII in log message
+- large serialized request body
+
+Rate limiter logs can become security logs.
+
+Treat them accordingly.
+
+---
+
+## 34. Testing Fixed Window
+
+Test cases:
+
+- first request creates key and TTL
+- requests below limit allowed
+- request at limit allowed or rejected according to policy
+- request over limit rejected
+- TTL exists after increment
+- new window resets count
+- concurrent requests do not exceed expected behavior
+- Redis timeout triggers configured fallback
+- Retry-After matches TTL
+
+Use Testcontainers Redis for integration tests.
+
+Do not mock away all Redis behavior.
+
+TTL and atomicity bugs often appear only with real Redis.
+
+---
+
+## 35. Testing Sliding Log
+
+Test cases:
+
+- old entries removed
+- current window counted correctly
+- duplicate members do not collapse events unexpectedly
+- retryAfter calculated from oldest event
+- TTL set on active key
+- memory does not grow after window passes
+- concurrent requests around limit behave correctly
+- large sorted set performance is acceptable
+
+Also test clock boundaries.
+
+```text
+now exactly at cutoff
+now slightly before cutoff
+now slightly after cutoff
+```
+
+Boundary errors are common.
+
+---
+
+## 36. Testing Token Bucket
+
+Test cases:
+
+- new bucket starts full
+- request consumes tokens
+- elapsed time refills tokens
+- tokens never exceed capacity
+- insufficient tokens reject
+- retryAfter is calculated correctly
+- weighted cost works
+- negative elapsed time is clamped
+- TTL is set
+- idle bucket expires
+
+For deterministic tests, inject time.
+
+Do not call `System.currentTimeMillis()` directly inside business logic that is hard to test.
+
+---
+
+## 37. Production Debugging Playbook
+
+When rate limiting is too strict:
+
+```text
+Check limit config.
+Check subject extraction.
+Check key naming.
+Check current Redis key value/state.
+Check TTL.
+Check clock source.
+Check recent deployment.
+Check pod scaling.
+Check retry behavior from clients.
+Check tenant override.
+```
+
+When rate limiting is too loose:
+
+```text
+Check unprotected endpoints.
+Check gateway/service mismatch.
+Check local limiter multiplied by pod count.
+Check fail-open metrics.
+Check Redis errors/timeouts.
+Check multiple subject IDs for same actor.
+Check async consumers bypassing limiter.
+```
+
+When Redis is hot:
+
+```text
+Check global limiter keys.
+Check EVAL latency.
+Check commandstats.
+Check slowlog.
+Check key cardinality.
+Check retry storm.
+Check pod count and pool size.
+```
+
+---
+
+## 38. Common Implementation Bugs
+
+| Bug | Consequence |
+|---|---|
+| `INCR` without guaranteed TTL | stuck limiter key |
+| member collision in sorted set | undercounting |
+| no cleanup in sliding log | memory leak-like growth |
+| using local time string with timezone | inconsistent windows |
+| raw endpoint path in key | cardinality explosion |
+| raw email/IP in key/log | privacy/security issue |
+| unlimited Redis retry | latency amplification |
+| no fallback policy | random failure behavior |
+| fail-open without metrics | invisible loss of protection |
+| fail-closed on critical endpoint without SLO review | customer-facing outage |
+| Lua script too heavy | Redis latency spike |
+| Cluster multi-key script without hash tag | CROSSSLOT error |
+
+Most of these are preventable in PR review.
+
+---
+
+## 39. Internal Verification Checklist
+
+For CSG/team verification, check:
+
+- Which rate limiter algorithm is used per endpoint/use case.
+- Whether fixed window implementation uses Lua or another atomic pattern.
+- Whether limiter keys always have TTL.
+- Whether limiter keys contain PII.
+- Whether subject extraction is based on user, tenant, IP, endpoint, API key, or service account.
+- Whether tenant-specific overrides exist.
+- Whether Redis Cluster hash tags are required.
+- Whether Lua scripts are versioned and tested.
+- Whether Java Redis client timeout is appropriate for request path.
+- Whether Redis retry behavior can amplify incidents.
+- Whether limiter failures are fail-open or fail-closed.
+- Whether fallback decisions are logged and measured.
+- Whether 429 responses include Retry-After when appropriate.
+- Whether metrics avoid high-cardinality labels.
+- Whether Kafka/RabbitMQ consumers have separate throttling.
+- Whether PostgreSQL-heavy operations are limited before DB work.
+- Whether load tests include Redis limiter path.
+- Whether support/on-call can inspect limiter state safely.
+
+---
+
+## 40. PR Review Checklist
+
+When reviewing a Redis rate limiter PR, ask:
+
+- What algorithm is implemented?
+- Why is this algorithm appropriate?
+- Is the operation atomic?
+- Are all keys guaranteed to expire?
+- What is the key naming convention?
+- Is there high-cardinality risk?
+- Is there hot-key risk?
+- Is PII avoided in keys and logs?
+- How is `Retry-After` calculated?
+- Do rejected requests count?
+- Is weighted cost supported or intentionally not needed?
+- What happens if Redis times out?
+- Is fail-open/fail-closed explicit?
+- Is Redis Cluster supported if needed?
+- Are Lua scripts short and deterministic?
+- Are tests using real Redis behavior?
+- Are concurrency tests included?
+- Are metrics and logs production-safe?
+- Can operators tune limits without redeploying code?
+- Is the limiter protecting the right resource?
+
+A rate limiter implementation is not finished until its failure behavior is clear.
+
+---
+
+## 41. Summary
+
+Redis supports multiple rate limiter implementations:
+
+```text
+Fixed window        -> simplest, coarse, boundary burst
+Sliding window      -> smoother, approximate
+Sliding log         -> accurate, memory heavier
+Token bucket        -> burst-friendly, strong general-purpose option
+Leaky bucket        -> smoother downstream protection
+Hybrid local+Redis  -> scalable protection layer
+```
+
+The core production rules are:
+
+- make multi-command logic atomic
+- always manage TTL
+- avoid PII in keys/logs
+- control cardinality
+- watch for hot keys
+- define fail-open/fail-closed behavior
+- emit metrics for allow/reject/error/fallback
+- test concurrency and time boundaries
+- document the business purpose of every limit
+
+A Redis rate limiter is not just a Redis script.
+
+It is a production control loop sitting on the request path.
