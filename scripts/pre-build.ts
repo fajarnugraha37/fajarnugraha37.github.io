@@ -27,6 +27,7 @@ import {
   getSeriesDomainManifestPaths,
   loadAggregatedSeriesManifest,
 } from "../lib/series-manifest";
+import { prepareMdxSourceForCompile } from "../lib/mdx";
 import { toggleContentRoutePages } from "./content-route-pages";
 
 const BLOGS_DIR = path.join(process.cwd(), "content", "blogs");
@@ -808,7 +809,7 @@ async function buildCompiledMdxCaches(
       try {
         cacheEntry = await buildCompiledMdxCacheEntry({
           title: part.title,
-          content,
+          content: prepareMdxSourceForCompile(content, seriesEntry.sourcePath),
           fingerprint: part.fingerprint,
         });
       } catch (error) {

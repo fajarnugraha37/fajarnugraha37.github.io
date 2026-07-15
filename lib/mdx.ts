@@ -189,6 +189,61 @@ function escapeInlineHtmlCommentSyntax(segment: string) {
   );
 }
 
+function isFenceDelimiter(line: string) {
+  const trimmedLine = line.trimStart();
+  return trimmedLine.match(/^([`~]{3,})(.*)$/);
+}
+
+function escapeCurlyBraceSyntax(segment: string) {
+  return segment.replace(/{/g, "&#123;").replace(/}/g, "&#125;");
+}
+
+export function isOnboardSeriesSourcePath(sourcePath?: string | null) {
+  return typeof sourcePath === "string" && (sourcePath === "onboard" || sourcePath.startsWith("onboard/"));
+}
+
+export function sanitizeImportedOnboardMdx(rawContent: string) {
+  const lines = rawContent.split("\n");
+  let activeFence: { marker: "`" | "~"; length: number } | null = null;
+
+  return lines
+    .map((line) => {
+      const fenceMatch = isFenceDelimiter(line);
+      if (!activeFence && fenceMatch) {
+        activeFence = {
+          marker: fenceMatch[1][0] as "`" | "~",
+          length: fenceMatch[1].length,
+        };
+        return line;
+      }
+
+      if (activeFence) {
+        const closingFencePattern =
+          activeFence.marker === "`"
+            ? new RegExp(`^\\s*\\\`{${activeFence.length},}\\s*$`)
+            : new RegExp(`^\\s*~{${activeFence.length},}\\s*$`);
+
+        if (closingFencePattern.test(line)) {
+          activeFence = null;
+        }
+
+        return line;
+      }
+
+      const segments = line.split(/(`[^`]*`)/g);
+      return segments.map((segment) => escapeCurlyBraceSyntax(segment)).join("");
+    })
+    .join("\n");
+}
+
+export function prepareMdxSourceForCompile(rawContent: string, sourcePath?: string | null) {
+  const source = isOnboardSeriesSourcePath(sourcePath)
+    ? sanitizeImportedOnboardMdx(rawContent)
+    : rawContent;
+
+  return normalizeMdxSource(source);
+}
+
 export function normalizeMdxSource(rawContent: string) {
   const lines = rawContent.split("\n");
   let activeFence: { marker: "`" | "~"; length: number } | null = null;

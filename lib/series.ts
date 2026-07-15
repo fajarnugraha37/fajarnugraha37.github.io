@@ -15,7 +15,7 @@ import {
   type SeriesIndexData,
   type SeriesIndexPartEntry,
 } from "@/lib/content-index";
-import { calculateContentStats } from "@/lib/mdx";
+import { calculateContentStats, prepareMdxSourceForCompile } from "@/lib/mdx";
 import { parseContentFrontmatter } from "@/lib/frontmatter";
 import { buildSeriesOverviewPhases } from "@/lib/series-navigation";
 import {
@@ -294,7 +294,7 @@ function readSeriesPart(source: ResolvedSeriesSource, fileName: string): SeriesP
     partTitle: frontmatter.partTitle,
     seriesSlug: source.slug,
     seriesTitle: frontmatter.seriesTitle || "",
-    content,
+    content: prepareMdxSourceForCompile(content, source.sourcePath),
   };
 }
 
