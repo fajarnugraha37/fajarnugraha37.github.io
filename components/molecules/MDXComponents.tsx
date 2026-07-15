@@ -2,6 +2,13 @@ import React from "react";
 import { CodeBlock } from "@/components/atoms/CodeBlock";
 import { MermaidDiagram } from "./MermaidDiagram";
 
+function decodeInlineCodeEntities(value: string) {
+  return value
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&");
+}
+
 export const mdxComponents: any = {
   pre: ({ children }: any) => {
     return <>{children}</>;
@@ -11,6 +18,7 @@ export const mdxComponents: any = {
     const codeString = Array.isArray(children)
       ? children.join("")
       : String(children);
+    const displayCodeString = decodeInlineCodeEntities(codeString);
 
     if (className === "language-mermaid" || className === "mermaid") {
       return <MermaidDiagram chart={codeString} />;
@@ -22,8 +30,10 @@ export const mdxComponents: any = {
     return (
       <code
         className="bg-muted px-1.5 py-0.5 rounded text-sm text-accent-secondary"
-        {...props}
-      />
+        {...rest}
+      >
+        {displayCodeString}
+      </code>
     );
   },
   h2: (props: any) => (

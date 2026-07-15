@@ -198,6 +198,17 @@ function escapeCurlyBraceSyntax(segment: string) {
   return segment.replace(/{/g, "&#123;").replace(/}/g, "&#125;");
 }
 
+function escapeOnboardInlineOperatorCodeSyntax(segment: string) {
+  return segment.replace(/`(<[^\w\s`>][^`\s>]*>)`/g, (_match, token: string) => {
+    const escaped = token
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+
+    return `\`${escaped}\``;
+  });
+}
+
 export function isOnboardSeriesSourcePath(sourcePath?: string | null) {
   return typeof sourcePath === "string" && (sourcePath === "onboard" || sourcePath.startsWith("onboard/"));
 }
@@ -231,7 +242,13 @@ export function sanitizeImportedOnboardMdx(rawContent: string) {
       }
 
       const segments = line.split(/(`[^`]*`)/g);
-      return segments.map((segment) => escapeCurlyBraceSyntax(segment)).join("");
+      return segments
+        .map((segment) =>
+          escapeOnboardInlineOperatorCodeSyntax(
+            escapeCurlyBraceSyntax(segment)
+          )
+        )
+        .join("");
     })
     .join("\n");
 }
